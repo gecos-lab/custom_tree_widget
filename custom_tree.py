@@ -213,6 +213,8 @@ class CustomTreeWidget(QTreeWidget):
             # Add the item and set the combo box in the last column
             self.setItemWidget(name_item, self.columnCount() - 1, property_combo)
 
+        # Expand all items after populating the tree
+        self.expandAll()
         self.resize_columns()
 
     def resize_columns(self):
