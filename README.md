@@ -6,5 +6,7 @@ custom_tree_widget © 2020 by Andrea Bistacchi, released under GNU AGPLv3 licens
 
 to do:
 
-- keep checked/unchecked state when columns reordered
+- keep properies (combobox) state when columns reordered
+- keep selection when combobox changed
+- make method names more regular
 - avoid multiple checkboxToggled signals when more than one item is checked/unchecked
