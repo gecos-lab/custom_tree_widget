@@ -197,7 +197,7 @@ class CustomTreeWidget(QTreeWidget):
             property_combo = QComboBox()
             property_combo.addItems(row[self.combo_label])
             property_combo.currentTextChanged.connect(
-                lambda text, item=name_item: self.emit_property_changed(item, text)
+                lambda text, item=name_item: self.on_combo_changed(item, text)
             )
 
             # Add the item and set the combo box in the last column
@@ -310,12 +310,18 @@ class CustomTreeWidget(QTreeWidget):
         return item
 
     def handle_item_changed(self, item, column):
+        # Store current selection before processing checkbox changes
+        current_selection = self.selected_uids.copy()
+        
         if column == 0 and item.checkState(0) != Qt.PartiallyChecked:
             self.blockSignals(True)
             self.update_child_check_states(item, item.checkState(0))
             self.update_parent_check_states(item)
             self.blockSignals(False)
             self.emit_checkbox_toggled()
+        
+        # Restore selection
+        self.restore_selection(current_selection)
 
     def update_child_check_states(self, item, check_state):
         for i in range(item.childCount()):
@@ -355,3 +361,36 @@ class CustomTreeWidget(QTreeWidget):
                 self.update_child_check_states(item, new_state)
                 self.update_parent_check_states(item)
             self.emit_checkbox_toggled()
+
+    def on_combo_changed(self, item, text):
+        # Store the current selection
+        current_selection = self.selected_uids.copy()
+        
+        # Emit the property change signal
+        self.emit_property_changed(item, text)
+        
+        # Restore selection after combo box interaction
+        self.restore_selection(current_selection)
+
+    def restore_selection(self, uids_to_select):
+        """Restore the selection to the specified list of UIDs"""
+        if not uids_to_select:
+            return
+            
+        # Temporarily block signals to prevent recursive calls
+        self.blockSignals(True)
+        
+        # Clear current selection
+        self.clearSelection()
+        
+        # Find all items matching our UIDs and select them
+        for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
+            uid = self.get_item_uid(item)
+            if uid and uid in uids_to_select:
+                item.setSelected(True)
+        
+        # Restore our selection list
+        self.selected_uids = uids_to_select.copy()
+        
+        # Unblock signals
+        self.blockSignals(False)

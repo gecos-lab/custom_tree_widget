@@ -4,8 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="26268d40-6354-42ff-ad07-efa8c3af38c4" name="Changes" comment="selection fix">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    <list default="true" id="26268d40-6354-42ff-ad07-efa8c3af38c4" name="Changes" comment="persistent selection check fix">
       <change beforePath="$PROJECT_DIR$/custom_tree.py" beforeDir="false" afterPath="$PROJECT_DIR$/custom_tree.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -141,7 +140,15 @@
       <option name="project" value="LOCAL" />
       <updated>1746395547741</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="persistent selection check fix">
+      <option name="closed" value="true" />
+      <created>1746398450890</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1746398450890</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -163,7 +170,8 @@
     <MESSAGE value="default expanded" />
     <MESSAGE value="self.checked_uids" />
     <MESSAGE value="selection fix" />
-    <option name="LAST_COMMIT_MESSAGE" value="selection fix" />
+    <MESSAGE value="persistent selection check fix" />
+    <option name="LAST_COMMIT_MESSAGE" value="persistent selection check fix" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -177,6 +185,6 @@
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/custom_tree_widget$custom_tree_demo.coverage" NAME="custom_tree_demo Coverage Results" MODIFIED="1746398261289" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/custom_tree_widget$custom_tree_demo.coverage" NAME="custom_tree_demo Coverage Results" MODIFIED="1746398635707" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>
