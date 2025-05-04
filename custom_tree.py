@@ -124,33 +124,13 @@ class CustomTreeWidget(QTreeWidget):
     """
     CustomTreeWidget is a specialized QTreeWidget used for displaying hierarchical data
     with customizable headers, checkable items, and property management.
-
-    This class is designed for scenarios where hierarchical data needs to be displayed
-    with specific labels, interactive checkboxes, and property assignment through combo boxes.
-    CustomTreeWidget enables the representation of datasets, providing features like dynamic
-    hierarchy arrangement, state updates through item selection and toggling, and context menu
-    interactions for enhanced usability.
-
-    :ivar checkboxToggled: Signal emitted when any checkbox state is toggled, passing a list of
-        currently checked items.
-    :type checkboxToggled: Signal(list)
-    :ivar itemsSelected: Signal emitted when tree items are selected, passing a list of selected items.
-    :type itemsSelected: Signal(list)
-    :ivar propertyChanged: Signal emitted when a property is changed in the tree. Passes the unique
-        identifier and the new property as string values.
-    :type propertyChanged: Signal(str, str)
-    :ivar collection_df: The DataFrame (optional) used to define the collection of data
-        for populating the tree.
-    :type collection_df: pandas.DataFrame or None
-    :ivar tree_labels: Labels for the tree headers to represent hierarchy.
-    :type tree_labels: list or None
-    :ivar item_labels: Labels for the items in the tree columns.
-    :type item_labels: list or None
-    :ivar header_labels: Full list of labels for the QTreeWidget header, which includes the
-        default "Tree" label and any item labels provided.
-    :type header_labels: list
-    :ivar header_widget: A custom header widget that provides hierarchy order control.
-    :type header_widget: CustomHeader
+    
+    ...existing docstring...
+    
+    :ivar name_label: Label for the column containing item names/descriptions.
+    :type name_label: str
+    :ivar uid_label: Label for the column containing unique identifiers.
+    :type uid_label: str
     """
 
     checkboxToggled = Signal(list)
@@ -161,17 +141,19 @@ class CustomTreeWidget(QTreeWidget):
         self,
         collection_df=None,
         tree_labels=None,
-        item_labels=None,
+        name_label=None,     # Renamed from item_labels to name_label
         combo_label=None,
+        uid_label=None,      # Specific parameter for the UID column
     ):
         super().__init__()
         self.collection_df = collection_df
         self.tree_labels = tree_labels
-        self.item_labels = item_labels
+        self.name_label = name_label    # Store name column
         self.combo_label = combo_label
-        self.header_labels = ["Tree"] + self.item_labels
+        self.uid_label = uid_label      # Store UID column name
+        self.header_labels = ["Tree", name_label]  # Only two columns plus combo
         self.blockSignals(False)
-        self.setColumnCount(3)
+        self.setColumnCount(3)          # Tree, Name, Combo
         self.setHeaderLabels(self.header_labels)
         self.setSelectionMode(QTreeWidget.MultiSelection)
         self.header_widget = CustomHeader(labels=self.tree_labels)
@@ -185,26 +167,42 @@ class CustomTreeWidget(QTreeWidget):
         self.itemChanged.connect(self.handle_item_changed)
         self.itemSelectionChanged.connect(self.emit_selection_changed)
 
-    def mousePressEvent(self, event):
-        if not (event.modifiers() & (Qt.ControlModifier | Qt.ShiftModifier)):
-            if event.button() == Qt.LeftButton:
-                self.clearSelection()
-        super().mousePressEvent(event)
-
     def populate_tree(self):
+        # Store checked states before clearing the tree
+        checked_uids = []
+        if self.invisibleRootItem().childCount() > 0:
+            for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
+                uid = self.get_item_uid(item)
+                if uid and item.checkState(0) == Qt.Checked:
+                    checked_uids.append(uid)
+        
         self.clear()
         hierarchy = self.header_widget.get_order()
         for _, row in self.collection_df.iterrows():
             parent = self.invisibleRootItem()
             for level in hierarchy:
                 parent = self.find_or_create_item(parent, row[level])
-            name_item = QTreeWidgetItem([""] + [row[col] for col in self.item_labels])
-            name_item.setFlags(name_item.flags() | Qt.ItemIsUserCheckable)
-            name_item.setCheckState(0, Qt.Unchecked)
+                
+            # Create item with empty first column and name in second column
+            name_item = QTreeWidgetItem(["", row[self.name_label]])
+            
+            # Store the UID as item data for reliable reference
+            if self.uid_label and self.uid_label in row:
+                uid = str(row[self.uid_label])
+                name_item.setData(0, Qt.UserRole, uid)
+                
+                # Restore check state if this item was previously checked
+                initial_state = Qt.Checked if uid in checked_uids else Qt.Unchecked
+                name_item.setFlags(name_item.flags() | Qt.ItemIsUserCheckable)
+                name_item.setCheckState(0, initial_state)
+            else:
+                name_item.setFlags(name_item.flags() | Qt.ItemIsUserCheckable)
+                name_item.setCheckState(0, Qt.Unchecked)
+                
             parent.addChild(name_item)
+            
             # Create and set up the QComboBox
             property_combo = QComboBox()
-            print("self.combo_label", self.combo_label)
             property_combo.addItems(row[self.combo_label])
             property_combo.currentTextChanged.connect(
                 lambda text, item=name_item: self.emit_property_changed(item, text)
@@ -216,6 +214,47 @@ class CustomTreeWidget(QTreeWidget):
         # Expand all items after populating the tree
         self.expandAll()
         self.resize_columns()
+        
+        # Update parent check states based on children's states
+        self.update_all_parent_check_states()
+    
+    def update_all_parent_check_states(self):
+        """Update all parent check states after restoring checked items"""
+        # Process in reverse order to ensure children are processed before parents
+        all_items = self.findItems("", Qt.MatchContains | Qt.MatchRecursive)
+        for item in reversed(all_items):
+            if item.parent():
+                self.update_parent_check_states(item)
+
+    # ... other methods remain the same as in previous response ...
+    
+    def emit_checkbox_toggled(self):
+        # Update to use UIDs directly
+        checked_items = []
+        for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
+            if item.checkState(0) == Qt.Checked:
+                uid = self.get_item_uid(item)
+                if uid:
+                    checked_items.append(uid)
+        self.checkboxToggled.emit(checked_items)
+
+    def emit_selection_changed(self):
+        # Update to use UIDs directly
+        selected_items = []
+        for item in self.selectedItems():
+            uid = self.get_item_uid(item)
+            if uid:
+                selected_items.append(uid)
+        self.itemsSelected.emit(selected_items)
+
+    def emit_property_changed(self, item, new_property):
+        uid = self.get_item_uid(item)
+        if uid:
+            self.propertyToggled.emit(uid, new_property)
+    
+    def get_item_uid(self, item):
+        """Helper function to get the UID stored in the item's data."""
+        return item.data(0, Qt.UserRole)
 
     def resize_columns(self):
         for i in range(self.columnCount()):
@@ -267,27 +306,6 @@ class CustomTreeWidget(QTreeWidget):
                 parent.setCheckState(0, Qt.PartiallyChecked)
             self.update_parent_check_states(parent)
 
-    def emit_checkbox_toggled(self):
-        checked_items = list(
-            filter(
-                None,
-                [
-                    item.text(2)
-                    for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive)
-                    if item.checkState(0) == Qt.Checked
-                ],
-            )
-        )
-        self.checkboxToggled.emit(checked_items)
-
-    def emit_selection_changed(self):
-        selected_items = list(
-            filter(None, [item.text(2) for item in self.selectedItems()])
-        )
-        self.itemsSelected.emit(selected_items)
-
-    def emit_property_changed(self, item, new_property):
-        self.propertyToggled.emit(item.text(2), new_property)
 
     def show_context_menu(self, position):
         menu = QMenu()
@@ -302,3 +320,74 @@ class CustomTreeWidget(QTreeWidget):
                 self.update_child_check_states(item, new_state)
                 self.update_parent_check_states(item)
             self.emit_checkbox_toggled()
+if __name__ == "__main__":
+    import sys
+    import pandas as pd
+    from PySide6.QtWidgets import QApplication, QMainWindow
+
+    class MainWindow(QMainWindow):
+        def __init__(self, collection_df, tree_labels, name_label, uid_label, combo_label):
+            super().__init__()
+            self.tree = CustomTreeWidget(
+                collection_df=collection_df,
+                tree_labels=tree_labels,
+                name_label=name_label,
+                uid_label=uid_label,
+                combo_label=combo_label
+            )
+            self.setCentralWidget(self.tree)
+
+    app = QApplication(sys.argv)
+    tree_labels: list[str] = ["role", "topology", "feature", "scenario"]
+    name_label = "name"    # Instead of item_labels list, use direct variables
+    uid_label = "uid"      # Instead of item_labels list, use direct variables
+    combo_label: str = "properties"
+    collection_df = pd.DataFrame(
+        {
+            "role": ["fault", "top", "top", "fault", "top", "top"],
+            "topology": [
+                "PolyLine",
+                "PolyLine",
+                "TriSurf",
+                "PolyLine",
+                "PolyLine",
+                "TriSurf",
+            ],
+            "feature": [
+                "Triassic",
+                "Jurassic",
+                "Triassic",
+                "Triassic",
+                "Jurassic",
+                "Triassic",
+            ],
+            "scenario": [
+                "preliminary",
+                "final",
+                "preliminary",
+                "preliminary",
+                "final",
+                "preliminary",
+            ],
+            "name": ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta"],
+            "uid": ["1", "2", "3", "4", "5", "6"],
+            "properties": [
+                ["a", "aa", "aaa"],
+                ["b", "bb"],
+                ["c", "cc"],
+                ["d", "dd", "ddd"],
+                ["eee"],
+                ["fff"],
+            ],
+        }
+    )
+    main_window = MainWindow(
+        collection_df=collection_df,
+        tree_labels=tree_labels,
+        name_label=name_label,     # Use name_label directly
+        uid_label=uid_label,       # Use uid_label directly 
+        combo_label=combo_label,
+    )
+    main_window.show()
+    # Rest of the code remains the same
+    sys.exit(app.exec())
