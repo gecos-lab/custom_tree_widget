@@ -132,7 +132,6 @@ class CustomTreeWidget(QTreeWidget):
     :ivar uid_label: Label for the column containing unique identifiers.
     :type uid_label: str
     """
-
     checkboxToggled = Signal(list)
     itemsSelected = Signal(list)
     propertyToggled = Signal(str, str)  # uid, new_property
@@ -170,38 +169,30 @@ class CustomTreeWidget(QTreeWidget):
         self.itemSelectionChanged.connect(self.emit_selection_changed)
 
     def populate_tree(self):
-        # Store checked states before clearing the tree
-        if self.invisibleRootItem().childCount() > 0:
-            for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
-                uid = self.get_item_uid(item)
-                if uid and item.checkState(0) == Qt.Checked:
-                    self.checked_uids.append(uid)
-        
         self.clear()
         hierarchy = self.header_widget.get_order()
         for _, row in self.collection_df.iterrows():
             parent = self.invisibleRootItem()
             for level in hierarchy:
                 parent = self.find_or_create_item(parent, row[level])
-                
+
             # Create item with empty first column and name in second column
             name_item = QTreeWidgetItem(["", row[self.name_label]])
-            
+
             # Store the UID as item data for reliable reference
             if self.uid_label and self.uid_label in row:
                 uid = str(row[self.uid_label])
                 name_item.setData(0, Qt.UserRole, uid)
-                
-                # Restore check state if this item was previously checked
-                initial_state = Qt.Checked if uid in self.checked_uids else Qt.Unchecked
+
+                # Initialize checkbox (states will be restored later)
                 name_item.setFlags(name_item.flags() | Qt.ItemIsUserCheckable)
-                name_item.setCheckState(0, initial_state)
+                name_item.setCheckState(0, Qt.Unchecked)
             else:
                 name_item.setFlags(name_item.flags() | Qt.ItemIsUserCheckable)
                 name_item.setCheckState(0, Qt.Unchecked)
-                
+
             parent.addChild(name_item)
-            
+
             # Create and set up the QComboBox
             property_combo = QComboBox()
             property_combo.addItems(row[self.combo_label])
@@ -212,13 +203,58 @@ class CustomTreeWidget(QTreeWidget):
             # Add the item and set the combo box in the last column
             self.setItemWidget(name_item, self.columnCount() - 1, property_combo)
 
-        # Expand all items after populating the tree
-        self.expandAll()
-        self.resize_columns()
-        
-        # Update parent check states based on children's states
+            # Expand all items after populating the tree
+            self.expandAll()
+            self.resize_columns()
+
+        # Note: We no longer restore checkbox states or selection here
+        # That's all handled in rearrange_hierarchy
+
+    def rearrange_hierarchy(self):
+        # Store the current selection and checkbox states before repopulating
+        saved_selected = self.selected_uids.copy()
+        saved_checked = self.checked_uids.copy()
+
+        # Save any additional checkboxes that might not be in self.checked_uids yet
+        if self.invisibleRootItem().childCount() > 0:
+            for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
+                uid = self.get_item_uid(item)
+                if uid and item.checkState(0) == Qt.Checked and uid not in saved_checked:
+                    saved_checked.append(uid)
+
+        # Repopulate the tree (this will clear selections and checkboxes)
+        self.populate_tree()
+
+        # Now restore checkbox states
+        self.checked_uids = saved_checked  # Restore the checked_uids list directly
+        for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
+            uid = self.get_item_uid(item)
+            if uid and uid in saved_checked:
+                item.setCheckState(0, Qt.Checked)
+
+        # Update parent checkbox states based on children
         self.update_all_parent_check_states()
-    
+
+        # Now restore selection
+        if saved_selected:
+            # Temporarily block signals to prevent recursive calls
+            self.blockSignals(True)
+
+            # Find all items matching our saved UIDs and select them
+            for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
+                uid = self.get_item_uid(item)
+                if uid and uid in saved_selected:
+                    item.setSelected(True)
+
+            # Restore our saved selection list directly
+            self.selected_uids = saved_selected
+
+            # Unblock signals
+            self.blockSignals(False)
+
+            # Emit the selection signal with our restored selection
+            self.itemsSelected.emit(self.selected_uids)
+
     def update_all_parent_check_states(self):
         """Update all parent check states after restoring checked items"""
         # Process in reverse order to ensure children are processed before parents
@@ -273,9 +309,6 @@ class CustomTreeWidget(QTreeWidget):
         parent.addChild(item)
         return item
 
-    def rearrange_hierarchy(self):
-        self.populate_tree()
-
     def handle_item_changed(self, item, column):
         if column == 0 and item.checkState(0) != Qt.PartiallyChecked:
             self.blockSignals(True)
@@ -308,7 +341,6 @@ class CustomTreeWidget(QTreeWidget):
             else:
                 parent.setCheckState(0, Qt.PartiallyChecked)
             self.update_parent_check_states(parent)
-
 
     def show_context_menu(self, position):
         menu = QMenu()
