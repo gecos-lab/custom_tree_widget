@@ -225,8 +225,6 @@ class CustomTreeWidget(QTreeWidget):
         for item in reversed(all_items):
             if item.parent():
                 self.update_parent_check_states(item)
-
-    # ... other methods remain the same as in previous response ...
     
     def emit_checkbox_toggled(self):
         # Update to use UIDs directly
@@ -320,74 +318,4 @@ class CustomTreeWidget(QTreeWidget):
                 self.update_child_check_states(item, new_state)
                 self.update_parent_check_states(item)
             self.emit_checkbox_toggled()
-if __name__ == "__main__":
-    import sys
-    import pandas as pd
-    from PySide6.QtWidgets import QApplication, QMainWindow
 
-    class MainWindow(QMainWindow):
-        def __init__(self, collection_df, tree_labels, name_label, uid_label, combo_label):
-            super().__init__()
-            self.tree = CustomTreeWidget(
-                collection_df=collection_df,
-                tree_labels=tree_labels,
-                name_label=name_label,
-                uid_label=uid_label,
-                combo_label=combo_label
-            )
-            self.setCentralWidget(self.tree)
-
-    app = QApplication(sys.argv)
-    tree_labels: list[str] = ["role", "topology", "feature", "scenario"]
-    name_label = "name"    # Instead of item_labels list, use direct variables
-    uid_label = "uid"      # Instead of item_labels list, use direct variables
-    combo_label: str = "properties"
-    collection_df = pd.DataFrame(
-        {
-            "role": ["fault", "top", "top", "fault", "top", "top"],
-            "topology": [
-                "PolyLine",
-                "PolyLine",
-                "TriSurf",
-                "PolyLine",
-                "PolyLine",
-                "TriSurf",
-            ],
-            "feature": [
-                "Triassic",
-                "Jurassic",
-                "Triassic",
-                "Triassic",
-                "Jurassic",
-                "Triassic",
-            ],
-            "scenario": [
-                "preliminary",
-                "final",
-                "preliminary",
-                "preliminary",
-                "final",
-                "preliminary",
-            ],
-            "name": ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta"],
-            "uid": ["1", "2", "3", "4", "5", "6"],
-            "properties": [
-                ["a", "aa", "aaa"],
-                ["b", "bb"],
-                ["c", "cc"],
-                ["d", "dd", "ddd"],
-                ["eee"],
-                ["fff"],
-            ],
-        }
-    )
-    main_window = MainWindow(
-        collection_df=collection_df,
-        tree_labels=tree_labels,
-        name_label=name_label,     # Use name_label directly
-        uid_label=uid_label,       # Use uid_label directly 
-        combo_label=combo_label,
-    )
-    main_window.show()
-    # Rest of the code remains the same
-    sys.exit(app.exec())
