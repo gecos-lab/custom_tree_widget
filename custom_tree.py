@@ -151,6 +151,7 @@ class CustomTreeWidget(QTreeWidget):
         self.name_label = name_label    # Store name column
         self.combo_label = combo_label
         self.uid_label = uid_label      # Store UID column name
+        self.checked_uids = []
         self.header_labels = ["Tree", name_label]  # Only two columns plus combo
         self.blockSignals(False)
         self.setColumnCount(3)          # Tree, Name, Combo
@@ -169,12 +170,11 @@ class CustomTreeWidget(QTreeWidget):
 
     def populate_tree(self):
         # Store checked states before clearing the tree
-        checked_uids = []
         if self.invisibleRootItem().childCount() > 0:
             for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
                 uid = self.get_item_uid(item)
                 if uid and item.checkState(0) == Qt.Checked:
-                    checked_uids.append(uid)
+                    self.checked_uids.append(uid)
         
         self.clear()
         hierarchy = self.header_widget.get_order()
@@ -192,7 +192,7 @@ class CustomTreeWidget(QTreeWidget):
                 name_item.setData(0, Qt.UserRole, uid)
                 
                 # Restore check state if this item was previously checked
-                initial_state = Qt.Checked if uid in checked_uids else Qt.Unchecked
+                initial_state = Qt.Checked if uid in self.checked_uids else Qt.Unchecked
                 name_item.setFlags(name_item.flags() | Qt.ItemIsUserCheckable)
                 name_item.setCheckState(0, initial_state)
             else:
