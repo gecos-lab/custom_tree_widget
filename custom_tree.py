@@ -141,28 +141,29 @@ class CustomTreeWidget(QTreeWidget):
         self,
         collection_df=None,
         tree_labels=None,
-        name_label=None,     # Renamed from item_labels to name_label
+        name_label=None,
         combo_label=None,
-        uid_label=None,      # Specific parameter for the UID column
+        uid_label=None,
     ):
         super().__init__()
         self.collection_df = collection_df
         self.tree_labels = tree_labels
-        self.name_label = name_label    # Store name column
+        self.name_label = name_label
         self.combo_label = combo_label
-        self.uid_label = uid_label      # Store UID column name
+        self.uid_label = uid_label
         self.checked_uids = []
-        self.header_labels = ["Tree", name_label]  # Only two columns plus combo
+        self.selected_uids = []
+        self.header_labels = ["Tree", name_label]
         self.blockSignals(False)
-        self.setColumnCount(3)          # Tree, Name, Combo
+        self.setColumnCount(3)
         self.setHeaderLabels(self.header_labels)
-        self.setSelectionMode(QTreeWidget.MultiSelection)
+        self.setSelectionMode(QTreeWidget.ExtendedSelection)
         self.header_widget = CustomHeader(labels=self.tree_labels)
         self.header_widget.orderChanged.connect(self.rearrange_hierarchy)
         self.populate_tree()
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
-        self.header().hide()  # Hide the table header
+        self.header().hide()
         self.itemExpanded.connect(self.resize_columns)
         self.itemCollapsed.connect(self.resize_columns)
         self.itemChanged.connect(self.handle_item_changed)
@@ -237,13 +238,17 @@ class CustomTreeWidget(QTreeWidget):
         self.checkboxToggled.emit(checked_items)
 
     def emit_selection_changed(self):
-        # Update to use UIDs directly
-        selected_items = []
+        # Clear the current selection list
+        self.selected_uids = []
+        
+        # Add the UID of each selected item to the list
         for item in self.selectedItems():
             uid = self.get_item_uid(item)
             if uid:
-                selected_items.append(uid)
-        self.itemsSelected.emit(selected_items)
+                self.selected_uids.append(uid)
+        
+        # Emit the signal with the updated selection list
+        self.itemsSelected.emit(self.selected_uids)
 
     def emit_property_changed(self, item, new_property):
         uid = self.get_item_uid(item)
@@ -318,4 +323,3 @@ class CustomTreeWidget(QTreeWidget):
                 self.update_child_check_states(item, new_state)
                 self.update_parent_check_states(item)
             self.emit_checkbox_toggled()
-
