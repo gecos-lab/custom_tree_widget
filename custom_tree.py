@@ -6,12 +6,28 @@ from PySide6.QtWidgets import (
     QPushButton,
     QWidget,
     QSizePolicy,
+    QComboBox,  # Add this import
 )
 from PySide6.QtCore import Qt, Signal, QMimeData
 from PySide6.QtGui import QDrag
 
 
 class DraggableButton(QPushButton):
+    """
+    A draggable button widget.
+
+    The DraggableButton class extends QPushButton to implement a button widget
+    that can be clicked and dragged. It supports checkable behavior and is
+    sized according to its size hint. The primary feature of this button is
+    its ability to initiate drag-and-drop actions when it is dragged with the
+    left mouse button.
+
+    :ivar _text: The text displayed on the button.
+    :type _text: str
+    :ivar _parent: The parent widget, if any, that contains this button.
+    :type _parent: QWidget or None
+    """
+
     def __init__(self, text, parent=None):
         super().__init__(text, parent)
         self.setCheckable(True)
@@ -31,6 +47,20 @@ class DraggableButton(QPushButton):
 
 
 class CustomHeader(QWidget):
+    """
+    CustomHeader is a QWidget subclass that provides a draggable and interactive
+    button-based header interface. It allows users to reorder buttons by dragging
+    and dropping, and emits a signal when the button order changes.
+
+    CustomHeader can be utilized in applications where a customizable header
+    layout with draggable elements is needed.
+
+    :ivar layout: Layout manager for arranging buttons within the header.
+    :type layout: QHBoxLayout
+    :ivar buttons: List of draggable buttons displayed in the header.
+    :type buttons: list
+    """
+
     orderChanged = Signal()
 
     def __init__(self, parent=None, labels=None):
@@ -51,7 +81,6 @@ class CustomHeader(QWidget):
 
     def get_order(self):
         order = [button.text() for button in self.buttons if button.isChecked()]
-        print("Current order:", order)  # Debug print
         return order
 
     def dragEnterEvent(self, event):
@@ -92,15 +121,56 @@ class CustomHeader(QWidget):
 
 
 class CustomTreeWidget(QTreeWidget):
+    """
+    CustomTreeWidget is a specialized QTreeWidget used for displaying hierarchical data
+    with customizable headers, checkable items, and property management.
+
+    This class is designed for scenarios where hierarchical data needs to be displayed
+    with specific labels, interactive checkboxes, and property assignment through combo boxes.
+    CustomTreeWidget enables the representation of datasets, providing features like dynamic
+    hierarchy arrangement, state updates through item selection and toggling, and context menu
+    interactions for enhanced usability.
+
+    :ivar checkboxToggled: Signal emitted when any checkbox state is toggled, passing a list of
+        currently checked items.
+    :type checkboxToggled: Signal(list)
+    :ivar itemsSelected: Signal emitted when tree items are selected, passing a list of selected items.
+    :type itemsSelected: Signal(list)
+    :ivar propertyChanged: Signal emitted when a property is changed in the tree. Passes the unique
+        identifier and the new property as string values.
+    :type propertyChanged: Signal(str, str)
+    :ivar collection_df: The DataFrame (optional) used to define the collection of data
+        for populating the tree.
+    :type collection_df: pandas.DataFrame or None
+    :ivar tree_labels: Labels for the tree headers to represent hierarchy.
+    :type tree_labels: list or None
+    :ivar item_labels: Labels for the items in the tree columns.
+    :type item_labels: list or None
+    :ivar header_labels: Full list of labels for the QTreeWidget header, which includes the
+        default "Tree" label and any item labels provided.
+    :type header_labels: list
+    :ivar header_widget: A custom header widget that provides hierarchy order control.
+    :type header_widget: CustomHeader
+    """
+
     checkboxToggled = Signal(list)
     itemsSelected = Signal(list)
+    propertyToggled = Signal(str, str)  # uid, new_property
 
-    def __init__(self, collection_df=None, tree_labels=None, item_labels=None):
+    def __init__(
+        self,
+        collection_df=None,
+        tree_labels=None,
+        item_labels=None,
+        combo_label=None,
+    ):
         super().__init__()
         self.collection_df = collection_df
         self.tree_labels = tree_labels
         self.item_labels = item_labels
+        self.combo_label = combo_label
         self.header_labels = ["Tree"] + self.item_labels
+        self.blockSignals(False)
         self.setColumnCount(3)
         self.setHeaderLabels(self.header_labels)
         self.setSelectionMode(QTreeWidget.MultiSelection)
@@ -113,7 +183,7 @@ class CustomTreeWidget(QTreeWidget):
         self.itemExpanded.connect(self.resize_columns)
         self.itemCollapsed.connect(self.resize_columns)
         self.itemChanged.connect(self.handle_item_changed)
-        self.itemSelectionChanged.connect(self.handle_selection_changed)
+        self.itemSelectionChanged.connect(self.emit_selection_changed)
 
     def mousePressEvent(self, event):
         if not (event.modifiers() & (Qt.ControlModifier | Qt.ShiftModifier)):
@@ -124,7 +194,6 @@ class CustomTreeWidget(QTreeWidget):
     def populate_tree(self):
         self.clear()
         hierarchy = self.header_widget.get_order()
-        print("Populating tree with hierarchy:", hierarchy)  # Debug print
         for _, row in self.collection_df.iterrows():
             parent = self.invisibleRootItem()
             for level in hierarchy:
@@ -133,6 +202,17 @@ class CustomTreeWidget(QTreeWidget):
             name_item.setFlags(name_item.flags() | Qt.ItemIsUserCheckable)
             name_item.setCheckState(0, Qt.Unchecked)
             parent.addChild(name_item)
+            # Create and set up the QComboBox
+            property_combo = QComboBox()
+            print("self.combo_label", self.combo_label)
+            property_combo.addItems(row[self.combo_label])
+            property_combo.currentTextChanged.connect(
+                lambda text, item=name_item: self.emit_property_changed(item, text)
+            )
+
+            # Add the item and set the combo box in the last column
+            self.setItemWidget(name_item, self.columnCount() - 1, property_combo)
+
         self.resize_columns()
 
     def resize_columns(self):
@@ -150,14 +230,15 @@ class CustomTreeWidget(QTreeWidget):
         return item
 
     def rearrange_hierarchy(self):
-        print("Rearranging hierarchy")  # Debug print
         self.populate_tree()
 
     def handle_item_changed(self, item, column):
         if column == 0 and item.checkState(0) != Qt.PartiallyChecked:
+            self.blockSignals(True)
             self.update_child_check_states(item, item.checkState(0))
             self.update_parent_check_states(item)
-        self.emit_checkbox_toggled()
+            self.blockSignals(False)
+            self.emit_checkbox_toggled()
 
     def update_child_check_states(self, item, check_state):
         for i in range(item.childCount()):
@@ -189,7 +270,7 @@ class CustomTreeWidget(QTreeWidget):
             filter(
                 None,
                 [
-                    item.text(1)
+                    item.text(2)
                     for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive)
                     if item.checkState(0) == Qt.Checked
                 ],
@@ -197,11 +278,14 @@ class CustomTreeWidget(QTreeWidget):
         )
         self.checkboxToggled.emit(checked_items)
 
-    def handle_selection_changed(self):
+    def emit_selection_changed(self):
         selected_items = list(
-            filter(None, [item.text(1) for item in self.selectedItems()])
+            filter(None, [item.text(2) for item in self.selectedItems()])
         )
         self.itemsSelected.emit(selected_items)
+
+    def emit_property_changed(self, item, new_property):
+        self.propertyToggled.emit(item.text(2), new_property)
 
     def show_context_menu(self, position):
         menu = QMenu()
