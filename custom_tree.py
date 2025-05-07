@@ -237,10 +237,13 @@ class CustomTreeWidget(QTreeWidget):
                 if uid and item.checkState(0) == Qt.Checked and uid not in saved_checked:
                     saved_checked.append(uid)
 
+        # Block signals temporarily to prevent unnecessary signal emissions during rebuild
+        self.blockSignals(True)
+        
         # Repopulate the tree (this will clear selections and checkboxes)
         self.populate_tree()
 
-        # Now restore checkbox states
+        # Restore checkbox states
         self.checked_uids = saved_checked  # Restore the checked_uids list directly
         for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
             uid = self.get_item_uid(item)
@@ -250,24 +253,23 @@ class CustomTreeWidget(QTreeWidget):
         # Update parent checkbox states based on children
         self.update_all_parent_check_states()
 
-        # Now restore selection
+        # Restore selection
+        self.clearSelection()  # Ensure clean state before restoring
         if saved_selected:
-            # Temporarily block signals to prevent recursive calls
-            self.blockSignals(True)
-
             # Find all items matching our saved UIDs and select them
             for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
                 uid = self.get_item_uid(item)
                 if uid and uid in saved_selected:
                     item.setSelected(True)
+        
+        # Restore our saved selection list directly
+        self.selected_uids = saved_selected
 
-            # Restore our saved selection list directly
-            self.selected_uids = saved_selected
+        # Unblock signals
+        self.blockSignals(False)
 
-            # Unblock signals
-            self.blockSignals(False)
-
-            # Emit the selection signal with our restored selection
+        # Emit selection signal to notify any listeners of the restored selection
+        if saved_selected:
             self.itemsSelected.emit(self.selected_uids)
 
     def update_all_parent_check_states(self):
