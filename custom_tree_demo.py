@@ -11,16 +11,14 @@ from custom_tree import CustomTreeWidget
 
 class MainWindow(QWidget):
     """
-    Main application window for displaying a tree structure.
+    The MainWindow class represents the primary graphical user interface window
+    incorporating a tree widget for data visualization and interaction.
 
-    This class represents the main window of the application, which displays
-    a tree structure using a custom widget. It initializes with an optional
-    data collection, along with labels for the tree and its items. The tree
-    is rendered using a `CustomTreeWidget`. Additional layout configurations
-    can be implemented depending on the application's requirements.
+    This class is built upon the QWidget provided by PyQt.
 
-    :ivar tree_widget: Instance of `CustomTreeWidget` used to display
-        the tree structure within the main window.
+    The purpose of this class is to provide a test layout containing a header widget and tree widget, which reflect the specified data and labels, enabling a structured view and potential further customization for users. It takes data and label inputs and initializes a custom tree widget to manage their display.
+
+    :ivar tree_widget: The custom tree widget is used for displaying data and labels.
     :type tree_widget: CustomTreeWidget
     """
 

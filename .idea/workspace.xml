@@ -4,9 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="26268d40-6354-42ff-ad07-efa8c3af38c4" name="Changes" comment="keep properies state when reordering">
+    <list default="true" id="26268d40-6354-42ff-ad07-efa8c3af38c4" name="Changes" comment="...">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/custom_tree.py" beforeDir="false" afterPath="$PROJECT_DIR$/custom_tree.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/custom_tree_demo.py" beforeDir="false" afterPath="$PROJECT_DIR$/custom_tree_demo.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -30,6 +32,9 @@
 }</component>
   <component name="HighlightingSettingsPerFile">
     <setting file="file://$USER_HOME$/anaconda3/envs/pzero/Lib/site-packages/pandas/core/indexes/base.py" root0="SKIP_INSPECTION" />
+  </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;customColor&quot;: &quot;&quot;,
@@ -167,7 +172,15 @@
       <option name="project" value="LOCAL" />
       <updated>1746631244712</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="...">
+      <option name="closed" value="true" />
+      <created>1746633301494</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1746633301494</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -192,7 +205,8 @@
     <MESSAGE value="persistent selection check fix" />
     <MESSAGE value="todo in readme" />
     <MESSAGE value="keep properies state when reordering" />
-    <option name="LAST_COMMIT_MESSAGE" value="keep properies state when reordering" />
+    <MESSAGE value="..." />
+    <option name="LAST_COMMIT_MESSAGE" value="..." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -206,6 +220,6 @@
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/custom_tree_widget$custom_tree_demo.coverage" NAME="custom_tree_demo Coverage Results" MODIFIED="1746633264942" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/custom_tree_widget$custom_tree_demo.coverage" NAME="custom_tree_demo Coverage Results" MODIFIED="1746637455003" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>
