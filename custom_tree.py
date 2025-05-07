@@ -399,7 +399,7 @@ class CustomTreeWidget(QTreeWidget):
             
         # Temporarily block signals to prevent recursive calls
         self.blockSignals(True)
-        
+
         # Clear current selection
         self.clearSelection()
         
@@ -411,6 +411,6 @@ class CustomTreeWidget(QTreeWidget):
         
         # Restore our selection list
         self.selected_uids = uids_to_select.copy()
-        
+
         # Unblock signals
         self.blockSignals(False)
