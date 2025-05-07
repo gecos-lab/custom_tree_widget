@@ -152,6 +152,7 @@ class CustomTreeWidget(QTreeWidget):
         self.uid_label = uid_label
         self.checked_uids = []
         self.selected_uids = []
+        self.combo_values = {}
         self.header_labels = ["Tree", name_label]
         self.blockSignals(False)
         self.setColumnCount(3)
@@ -169,6 +170,15 @@ class CustomTreeWidget(QTreeWidget):
         self.itemSelectionChanged.connect(self.emit_selection_changed)
 
     def populate_tree(self):
+        # Save current combo values before clearing the tree
+        if self.invisibleRootItem().childCount() > 0:
+            for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
+                uid = self.get_item_uid(item)
+                if uid:
+                    combo = self.itemWidget(item, self.columnCount() - 1)
+                    if combo:
+                        self.combo_values[uid] = combo.currentText()
+    
         self.clear()
         hierarchy = self.header_widget.get_order()
         for _, row in self.collection_df.iterrows():
@@ -183,8 +193,6 @@ class CustomTreeWidget(QTreeWidget):
             if self.uid_label and self.uid_label in row:
                 uid = str(row[self.uid_label])
                 name_item.setData(0, Qt.UserRole, uid)
-
-                # Initialize checkbox (states will be restored later)
                 name_item.setFlags(name_item.flags() | Qt.ItemIsUserCheckable)
                 name_item.setCheckState(0, Qt.Unchecked)
             else:
@@ -196,6 +204,13 @@ class CustomTreeWidget(QTreeWidget):
             # Create and set up the QComboBox
             property_combo = QComboBox()
             property_combo.addItems(row[self.combo_label])
+            
+            # Restore the previously selected value if it exists
+            if uid in self.combo_values:
+                index = property_combo.findText(self.combo_values[uid])
+                if index >= 0:
+                    property_combo.setCurrentIndex(index)
+        
             property_combo.currentTextChanged.connect(
                 lambda text, item=name_item: self.on_combo_changed(item, text)
             )
@@ -203,9 +218,9 @@ class CustomTreeWidget(QTreeWidget):
             # Add the item and set the combo box in the last column
             self.setItemWidget(name_item, self.columnCount() - 1, property_combo)
 
-            # Expand all items after populating the tree
-            self.expandAll()
-            self.resize_columns()
+        # Expand all items and resize columns
+        self.expandAll()
+        self.resize_columns()
 
         # Note: We no longer restore checkbox states or selection here
         # That's all handled in rearrange_hierarchy
@@ -366,8 +381,11 @@ class CustomTreeWidget(QTreeWidget):
         # Store the current selection
         current_selection = self.selected_uids.copy()
         
-        # Emit the property change signal
-        self.emit_property_changed(item, text)
+        # Update the stored combo value
+        uid = self.get_item_uid(item)
+        if uid:
+            self.combo_values[uid] = text
+            self.emit_property_changed(item, text)
         
         # Restore selection after combo box interaction
         self.restore_selection(current_selection)
