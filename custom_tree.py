@@ -548,7 +548,7 @@ class CustomTreeWidget(QTreeWidget):
     def on_checkbox_changed(self, item, column):
         """
         Handles the event when a checkbox state changes in the tree widget.
-
+        
         This function updates the state of children and parent items in the tree structure
         based on the state of the checkbox that triggered the change. Additionally, any
         selections made by the user are temporarily stored and restored after processing
@@ -563,16 +563,16 @@ class CustomTreeWidget(QTreeWidget):
 
         # Store current selection before processing checkbox changes
         current_selection = self.selected_uids.copy()
-
+        
         if column == 0 and item.checkState(0) != Qt.PartiallyChecked:
             self.blockSignals(True)
             self.update_child_check_states(item, item.checkState(0))
             self.update_parent_check_states(item)
             self.blockSignals(False)
             self.emit_checkbox_toggled()
-
-        # Restore selection
-        self.restore_selection(current_selection)
+        
+            # Restore selection
+            self.restore_selection(current_selection)
 
     def update_child_check_states(self, item, check_state):
         """
@@ -610,21 +610,21 @@ class CustomTreeWidget(QTreeWidget):
 
         parent = item.parent()
         if parent:
-            all_checked = all(
-                child.checkState(0) == Qt.Checked
-                for child in [parent.child(i) for i in range(parent.childCount())]
-            )
-            all_unchecked = all(
-                child.checkState(0) == Qt.Unchecked
-                for child in [parent.child(i) for i in range(parent.childCount())]
-            )
-            if all_checked:
-                parent.setCheckState(0, Qt.Checked)
-            elif all_unchecked:
-                parent.setCheckState(0, Qt.Unchecked)
-            else:
-                parent.setCheckState(0, Qt.PartiallyChecked)
-            self.update_parent_check_states(parent)
+                all_checked = all(
+                    child.checkState(0) == Qt.Checked
+                    for child in [parent.child(i) for i in range(parent.childCount())]
+                )
+                all_unchecked = all(
+                    child.checkState(0) == Qt.Unchecked
+                    for child in [parent.child(i) for i in range(parent.childCount())]
+                )
+                if all_checked:
+                    parent.setCheckState(0, Qt.Checked)
+                elif all_unchecked:
+                    parent.setCheckState(0, Qt.Unchecked)
+                else:
+                    parent.setCheckState(0, Qt.PartiallyChecked)
+                self.update_parent_check_states(parent)
 
     def toggle_with_menu(self, position):
         """
@@ -640,14 +640,14 @@ class CustomTreeWidget(QTreeWidget):
         toggle_action = menu.addAction("Toggle Checkboxes")
         action = menu.exec_(self.viewport().mapToGlobal(position))
         if action == toggle_action:
-            for item in self.selectedItems():
-                new_state = (
-                    Qt.Checked if item.checkState(0) == Qt.Unchecked else Qt.Unchecked
-                )
-                item.setCheckState(0, new_state)
-                self.update_child_check_states(item, new_state)
-                self.update_parent_check_states(item)
-            self.emit_checkbox_toggled()
+                for item in self.selectedItems():
+                    new_state = (
+                        Qt.Checked if item.checkState(0) == Qt.Unchecked else Qt.Unchecked
+                    )
+                    item.setCheckState(0, new_state)
+                    self.update_child_check_states(item, new_state)
+                    self.update_parent_check_states(item)
+                self.emit_checkbox_toggled()
 
     def on_combo_changed(self, item, text):
         """
