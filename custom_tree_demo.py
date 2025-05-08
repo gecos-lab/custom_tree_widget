@@ -32,7 +32,10 @@ class MainWindow(QWidget):
     ) -> None:
         super().__init__()
         layout = QVBoxLayout(self)
+        self.selected_uids = []  # Store selected UIDs here
+        self.collection = "this_collection"  # Or whatever initial value
         self.tree_widget = CustomTreeWidget(
+            parent=self,  # Pass self as parent
             collection_df=collection_df,
             tree_labels=tree_labels,
             name_label=name_label,
@@ -97,12 +100,12 @@ if __name__ == "__main__":
     )
     main_window.show()
     main_window.tree_widget.checkboxToggled.connect(
-        lambda uids: print("Checked uids:", uids)
+        lambda coll, uids: print("Collection, checked uids:", coll, " - ", uids)
     )
     main_window.tree_widget.itemsSelected.connect(
-        lambda uids: print("Selected uids:", uids)
+        lambda coll, uids: print("Collection, selected uids:", coll, " - ", uids)
     )
     main_window.tree_widget.propertyToggled.connect(
-        lambda uid, prop: print("Changed uid, prop:", uid, " - ", prop)
+        lambda coll, uid, prop: print("Collection, changed uid, prop:", coll, " - ", uid, " - ", prop)
     )
     sys.exit(app.exec())

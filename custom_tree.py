@@ -229,12 +229,13 @@ class CustomTreeWidget(QTreeWidget):
     :type header_widget: CustomHeader
     """
 
-    checkboxToggled = Signal(list)  # list uids with checkbox toggled ON
-    itemsSelected = Signal(list)  # list of selected uids
-    propertyToggled = Signal(str, str)  # two strings used for uid and new_property
+    checkboxToggled = Signal(str, list)  # list uids with checkbox toggled ON
+    itemsSelected = Signal(str, list)  # list of selected uids
+    propertyToggled = Signal(str, str, str)  # two strings used for uid and new_property
 
     def __init__(
         self,
+        parent=None,  # Store parent reference
         collection_df=None,
         tree_labels=None,
         name_label=None,
@@ -242,13 +243,14 @@ class CustomTreeWidget(QTreeWidget):
         uid_label=None,
     ):
         super().__init__()
+        self.parent = parent  # Store parent reference
         self.collection_df = collection_df
         self.tree_labels = tree_labels
         self.name_label = name_label
         self.combo_label = combo_label
         self.uid_label = uid_label
         self.checked_uids = []
-        self.selected_uids = []
+        # self.selected_uids = []
         self.combo_values = {}
         self.header_labels = ["Tree", name_label]
         self.blockSignals(False)
@@ -348,7 +350,7 @@ class CustomTreeWidget(QTreeWidget):
         """
 
         # Store the current selection and checkbox states before repopulating
-        saved_selected = self.selected_uids.copy()
+        saved_selected = self.parent.selected_uids.copy()
         saved_checked = self.checked_uids.copy()
 
         # Save any additional checkboxes that might not be in self.checked_uids yet
@@ -388,14 +390,14 @@ class CustomTreeWidget(QTreeWidget):
                     item.setSelected(True)
 
         # Restore our saved selection list directly
-        self.selected_uids = saved_selected
+        self.parent.selected_uids = saved_selected
 
         # Unblock signals
         self.blockSignals(False)
 
         # Emit selection signal to notify any listeners of the restored selection
         if saved_selected:
-            self.itemsSelected.emit(self.selected_uids)
+            self.itemsSelected.emit(self.parent.collection, self.parent.selected_uids)
 
     def update_all_parent_check_states(self):
         """
@@ -437,7 +439,7 @@ class CustomTreeWidget(QTreeWidget):
                 uid = self.get_item_uid(item)
                 if uid:
                     checked_items.append(uid)
-        self.checkboxToggled.emit(checked_items)
+        self.checkboxToggled.emit(self.parent.collection, checked_items)
 
     def emit_selection_changed(self):
         """
@@ -456,16 +458,16 @@ class CustomTreeWidget(QTreeWidget):
         """
 
         # Clear the current selection list
-        self.selected_uids = []
+        self.parent.selected_uids = []
 
         # Add the UID of each selected item to the list
         for item in self.selectedItems():
             uid = self.get_item_uid(item)
             if uid:
-                self.selected_uids.append(uid)
+                self.parent.selected_uids.append(uid)
 
         # Emit the signal with the updated selection list
-        self.itemsSelected.emit(self.selected_uids)
+        self.itemsSelected.emit(self.parent.collection, self.parent.selected_uids)
 
     def emit_property_changed(self, item, new_property):
         """
@@ -485,7 +487,7 @@ class CustomTreeWidget(QTreeWidget):
 
         uid = self.get_item_uid(item)
         if uid:
-            self.propertyToggled.emit(uid, new_property)
+            self.propertyToggled.emit(self.parent.collection, uid, new_property)
 
     def get_item_uid(self, item):
         """
@@ -562,7 +564,7 @@ class CustomTreeWidget(QTreeWidget):
         """
 
         # Store current selection before processing checkbox changes
-        current_selection = self.selected_uids.copy()
+        current_selection = self.parent.selected_uids.copy()
         
         if column == 0 and item.checkState(0) != Qt.PartiallyChecked:
             self.blockSignals(True)
@@ -664,7 +666,7 @@ class CustomTreeWidget(QTreeWidget):
         """
 
         # Store the current selection
-        current_selection = self.selected_uids.copy()
+        current_selection = self.parent.selected_uids.copy()
 
         # Update the stored combo value
         uid = self.get_item_uid(item)
@@ -706,7 +708,7 @@ class CustomTreeWidget(QTreeWidget):
                 item.setSelected(True)
 
         # Restore our selection list
-        self.selected_uids = uids_to_select.copy()
+        self.parent.selected_uids = uids_to_select.copy()
 
         # Unblock signals
         self.blockSignals(False)
