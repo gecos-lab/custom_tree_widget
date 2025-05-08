@@ -1,10 +1,8 @@
 import sys
+from typing import List, Optional
+
 import pandas as pd
-from PySide6.QtWidgets import (
-    QApplication,
-    QWidget,
-    QVBoxLayout,
-)
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
 
 from custom_tree import CustomTreeWidget
 
@@ -13,46 +11,54 @@ class MainWindow(QWidget):
     """
     The MainWindow class represents the primary graphical user interface window
     incorporating a tree widget for data visualization and interaction.
-
-    This class is built upon the QWidget provided by PyQt.
-
-    The purpose of this class is to provide a test layout containing a header widget and tree widget, which reflect the specified data and labels, enabling a structured view and potential further customization for users. It takes data and label inputs and initializes a custom tree widget to manage their display.
-
-    :ivar tree_widget: The custom tree widget is used for displaying data and labels.
-    :type tree_widget: CustomTreeWidget
     """
 
     def __init__(
         self,
-        collection_df: "pd.DataFrame | None" = None,
-        tree_labels: "list[str] | None" = None,
-        name_label: "str | None" = None,
-        uid_label: "str | None" = None,
-        combo_label: "str | None" = None,
+        collection_df: Optional[pd.DataFrame] = None,
+        tree_labels: Optional[List[str]] = None,
+        name_label: Optional[str] = None,
+        uid_label: Optional[str] = None,
+        combo_label: Optional[str] = None,
     ) -> None:
         super().__init__()
-        layout = QVBoxLayout(self)
-        self.selected_uids = []  # Store selected UIDs here
-        self.collection = "this_collection"  # Or whatever initial value
-        self.tree_widget = CustomTreeWidget(
-            parent=self,  # Pass self as parent
+
+        self.collection: str = "this_collection"
+        self.selected_uids: List[str] = []
+
+        self.tree_widget = self._setup_tree_widget(
+            collection_df, tree_labels, name_label, uid_label, combo_label
+        )
+        self._setup_layout()
+
+    def _setup_tree_widget(
+        self,
+        collection_df: Optional[pd.DataFrame],
+        tree_labels: Optional[List[str]],
+        name_label: Optional[str],
+        uid_label: Optional[str],
+        combo_label: Optional[str],
+    ) -> CustomTreeWidget:
+        """Create and configure the CustomTreeWidget."""
+        return CustomTreeWidget(
+            parent=self,
             collection_df=collection_df,
             tree_labels=tree_labels,
             name_label=name_label,
             uid_label=uid_label,
             combo_label=combo_label,
         )
+
+    def _setup_layout(self) -> None:
+        """Setup the main window layout."""
+        layout = QVBoxLayout(self)
         layout.addWidget(self.tree_widget.header_widget)
         layout.addWidget(self.tree_widget)
 
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    tree_labels: list[str] = ["role", "topology", "feature", "scenario"]
-    name_label: str = "name"
-    uid_label: str = "uid"
-    combo_label: str = "properties"
-    collection_df = pd.DataFrame(
+def create_test_data() -> pd.DataFrame:
+    """Create sample data for testing the tree widget."""
+    return pd.DataFrame(
         {
             "role": ["fault", "top", "top", "fault", "top", "top"],
             "topology": [
@@ -91,6 +97,33 @@ if __name__ == "__main__":
             ],
         }
     )
+
+
+def setup_signal_connections(window: MainWindow) -> None:
+    """Setup signal connections for the main window's tree widget."""
+    window.tree_widget.checkboxToggled.connect(
+        lambda coll, uids: print("Collection, checked uids:", coll, " - ", uids)
+    )
+    window.tree_widget.itemsSelected.connect(
+        lambda coll, uids: print("Collection, selected uids:", coll, " - ", uids)
+    )
+    window.tree_widget.propertyToggled.connect(
+        lambda coll, uid, prop: print(
+            "Collection, changed uid, prop:", coll, " - ", uid, " - ", prop
+        )
+    )
+
+
+def main() -> None:
+    """Main application entry point."""
+    app = QApplication(sys.argv)
+
+    tree_labels = ["role", "topology", "feature", "scenario"]
+    name_label = "name"
+    uid_label = "uid"
+    combo_label = "properties"
+    collection_df = create_test_data()
+
     main_window = MainWindow(
         collection_df=collection_df,
         tree_labels=tree_labels,
@@ -99,13 +132,10 @@ if __name__ == "__main__":
         combo_label=combo_label,
     )
     main_window.show()
-    main_window.tree_widget.checkboxToggled.connect(
-        lambda coll, uids: print("Collection, checked uids:", coll, " - ", uids)
-    )
-    main_window.tree_widget.itemsSelected.connect(
-        lambda coll, uids: print("Collection, selected uids:", coll, " - ", uids)
-    )
-    main_window.tree_widget.propertyToggled.connect(
-        lambda coll, uid, prop: print("Collection, changed uid, prop:", coll, " - ", uid, " - ", prop)
-    )
+    setup_signal_connections(main_window)
+
     sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()

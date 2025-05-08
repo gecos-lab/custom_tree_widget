@@ -11,6 +11,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QMimeData
 from PySide6.QtGui import QDrag
 
+from contextlib import contextmanager
+
 
 class DraggableButton(QPushButton):
     """
@@ -138,49 +140,52 @@ class CustomHeader(QWidget):
         event.accept()
 
     def dropEvent(self, event):
-        """
-        Handles the drop event to rearrange draggable buttons within the layout.
-
-        When a DraggableButton is dropped, the method determines the closest button
-        based on the x-coordinate distance and rearranges the layout by inserting
-        the dropped button at the appropriate position. If no buttons exist in the
-        layout, the dropped button is added to the layout. Emits orderChanged signal
-        after buttons are rearranged.
-
-        :param event: The event object containing information about the source widget
-                      being dragged and the drop position.
-        :type event: QDropEvent
-        :return: None
-        """
-
+        """Handles the drop event to rearrange draggable buttons within the layout."""
         source_button = event.source()
-        if source_button in self.buttons:
-            self.layout.removeWidget(source_button)
-            drop_position = event.position().toPoint()
-            closest_button = None
-            min_distance = float("inf")
-            for button in self.buttons:
-                distance = abs(button.geometry().center().x() - drop_position.x())
-                if distance < min_distance:
-                    min_distance = distance
-                    closest_button = button
-            if closest_button:
-                index = self.layout.indexOf(closest_button)
-                if (
-                    drop_position.x()
-                    > closest_button.geometry().left()
-                    + closest_button.geometry().width() / 2
-                ):
-                    index += 1
-                self.layout.insertWidget(index, source_button)
-            else:
-                self.layout.addWidget(source_button)
-            self.buttons = [
-                self.layout.itemAt(i).widget()
-                for i in range(self.layout.count())
-                if isinstance(self.layout.itemAt(i).widget(), DraggableButton)
-            ]
-            self.buttonToggled.emit()
+        if source_button not in self.buttons:
+            return
+            
+        self._rearrange_button(source_button, event.position().toPoint())
+        self._update_button_list()
+        self.buttonToggled.emit()
+
+    def _rearrange_button(self, source_button, drop_position):
+        """Helper method to handle button rearrangement logic."""
+        self.layout.removeWidget(source_button)
+        closest_button, index = self._find_closest_button(drop_position)
+        
+        if closest_button:
+            if self._should_insert_after(closest_button, drop_position):
+                index += 1
+            self.layout.insertWidget(index, source_button)
+        else:
+            self.layout.addWidget(source_button)
+
+    def _find_closest_button(self, position):
+        """Find the closest button to the given position."""
+        closest_button = None
+        min_distance = float("inf")
+        index = -1
+        
+        for i, button in enumerate(self.buttons):
+            distance = abs(button.geometry().center().x() - position.x())
+            if distance < min_distance:
+                min_distance = distance
+                closest_button = button
+                index = i
+            
+        return closest_button, index
+
+    def _should_insert_after(self, button, position):
+        """Determine if the button should be inserted after the reference button."""
+        return position.x() > button.geometry().left() + button.geometry().width() / 2
+
+    def _update_button_list(self):
+        """Update the internal button list after rearrangement."""
+        self.buttons = [
+            widget for i in range(self.layout.count())
+            if isinstance((widget := self.layout.itemAt(i).widget()), DraggableButton)
+        ]
 
 
 class CustomTreeWidget(QTreeWidget):
@@ -267,6 +272,15 @@ class CustomTreeWidget(QTreeWidget):
         self.itemCollapsed.connect(self.resize_columns)
         self.itemChanged.connect(self.on_checkbox_changed)
         self.itemSelectionChanged.connect(self.emit_selection_changed)
+
+    def preserve_selection(func):
+        """Decorator used to preserve selection during several common tree widget operations."""
+        def wrapper(self, *args, **kwargs):
+            current_selection = self.parent.selected_uids.copy()
+            result = func(self, *args, **kwargs)
+            self.restore_selection(current_selection)
+            return result
+        return wrapper
 
     def populate_tree(self):
         """
@@ -433,12 +447,19 @@ class CustomTreeWidget(QTreeWidget):
         :return: None
         """
 
-        checked_items = []
-        for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
-            if item.checkState(0) == Qt.Checked:
-                uid = self.get_item_uid(item)
-                if uid:
-                    checked_items.append(uid)
+        # Instead of:
+        # checked_items = []
+        # for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
+        #     if item.checkState(0) == Qt.Checked:
+        #         uid = self.get_item_uid(item)
+        #         if uid:
+        #             checked_items.append(uid)
+        # Use:
+        checked_items = [
+            uid for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive)
+            if item.checkState(0) == Qt.Checked
+            and (uid := self.get_item_uid(item))
+        ]
         self.checkboxToggled.emit(self.parent.collection, checked_items)
 
     def emit_selection_changed(self):
@@ -547,6 +568,55 @@ class CustomTreeWidget(QTreeWidget):
         parent.addChild(item)
         return item
 
+    def update_parent_check_states(self, item):
+        """Updates parent check states based on children states."""
+        parent = item.parent()
+        if not parent:
+            return
+            
+        children = [parent.child(i) for i in range(parent.childCount())]
+        parent.setCheckState(0, self._determine_parent_state(children))
+        self.update_parent_check_states(parent)
+
+    def _determine_parent_state(self, children):
+        """Determine appropriate check state based on children states."""
+        states = {child.checkState(0) for child in children}
+        
+        if len(states) == 1:
+            return states.pop()  # If all children have same state, use that
+        return Qt.PartiallyChecked
+
+    def emit_checkbox_toggled(self):
+        """Emits signal with currently checked items."""
+        checked_items = [
+            uid for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive)
+            if item.checkState(0) == Qt.Checked
+            and (uid := self.get_item_uid(item))
+        ]
+        self.checkboxToggled.emit(self.parent.collection, checked_items)
+
+    @preserve_selection
+    def on_checkbox_changed(self, item, column):
+        """Handle checkbox state changes."""
+        if column != 0 or item.checkState(0) == Qt.PartiallyChecked:
+            return
+        
+        with self._signal_blocker():
+            self.update_child_check_states(item, item.checkState(0))
+            self.update_parent_check_states(item)
+        
+        self.emit_checkbox_toggled()
+
+    @contextmanager
+    def _signal_blocker(self):
+        """Context manager for temporarily blocking signals."""
+        self.blockSignals(True)
+        try:
+            yield
+        finally:
+            self.blockSignals(False)
+
+    @preserve_selection
     def on_checkbox_changed(self, item, column):
         """
         Handles the event when a checkbox state changes in the tree widget.
@@ -611,22 +681,34 @@ class CustomTreeWidget(QTreeWidget):
         """
 
         parent = item.parent()
+        # if parent:
+        #         all_checked = all(
+        #             child.checkState(0) == Qt.Checked
+        #             for child in [parent.child(i) for i in range(parent.childCount())]
+        #         )
+        #         all_unchecked = all(
+        #             child.checkState(0) == Qt.Unchecked
+        #             for child in [parent.child(i) for i in range(parent.childCount())]
+        #         )
+        #         if all_checked:
+        #             parent.setCheckState(0, Qt.Checked)
+        #         elif all_unchecked:
+        #             parent.setCheckState(0, Qt.Unchecked)
+        #         else:
+        #             parent.setCheckState(0, Qt.PartiallyChecked)
+        #         self.update_parent_check_states(parent)
         if parent:
-                all_checked = all(
-                    child.checkState(0) == Qt.Checked
-                    for child in [parent.child(i) for i in range(parent.childCount())]
-                )
-                all_unchecked = all(
-                    child.checkState(0) == Qt.Unchecked
-                    for child in [parent.child(i) for i in range(parent.childCount())]
-                )
-                if all_checked:
-                    parent.setCheckState(0, Qt.Checked)
-                elif all_unchecked:
-                    parent.setCheckState(0, Qt.Unchecked)
-                else:
-                    parent.setCheckState(0, Qt.PartiallyChecked)
-                self.update_parent_check_states(parent)
+            children = [parent.child(i) for i in range(parent.childCount())]
+            check_states = [child.checkState(0) for child in children]
+
+            if all(state == Qt.Checked for state in check_states):
+                parent.setCheckState(0, Qt.Checked)
+            elif all(state == Qt.Unchecked for state in check_states):
+                parent.setCheckState(0, Qt.Unchecked)
+            else:
+                parent.setCheckState(0, Qt.PartiallyChecked)
+
+            self.update_parent_check_states(parent)
 
     def toggle_with_menu(self, position):
         """
@@ -651,6 +733,7 @@ class CustomTreeWidget(QTreeWidget):
                     self.update_parent_check_states(item)
                 self.emit_checkbox_toggled()
 
+    @preserve_selection
     def on_combo_changed(self, item, text):
         """
         Handles changes in a combo box selection and updates internal state accordingly.
@@ -712,3 +795,28 @@ class CustomTreeWidget(QTreeWidget):
 
         # Unblock signals
         self.blockSignals(False)
+
+    def create_property_combo(self, row, uid):
+        property_combo = QComboBox()
+        property_combo.addItems(row[self.combo_label])
+        
+        if uid in self.combo_values:
+            index = property_combo.findText(self.combo_values[uid])
+            if index >= 0:
+                property_combo.setCurrentIndex(index)
+                
+        return property_combo
+def create_property_combo(self, row, uid):
+    """Create and configure a property combo box."""
+    combo = QComboBox()
+    combo.addItems(row[self.combo_label])
+    
+    if uid in self.combo_values:
+        self._restore_combo_selection(combo, uid)
+    return combo
+    
+def _restore_combo_selection(self, combo, uid):
+    """Restore previous combo box selection if available."""
+    index = combo.findText(self.combo_values[uid])
+    if index >= 0:
+        combo.setCurrentIndex(index)
