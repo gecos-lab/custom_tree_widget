@@ -12,23 +12,26 @@ from custom_tree import CustomTreeWidget
 class CollectionSignals(QObject):
     """
     This class is necessary since non-Qt classes cannot emit Qt signals. Therefore, we create a generic
-    CollectionSignals() Qt object, that will include all signals used by collections. These will be used according
+    CollectionSignals() Qt object that will include all signals used by collections. These will be used according
     to the following pattern:
 
     self.signals = CollectionSignals()
 
     self.signals.specific_signal.emit(some_message)
 
-    etc.
+    Etc.
 
     Basically in this way, instead of using inheritance, we add all signals with a quick move by composition.
     """
 
-    itemsSelected = pyqtSignal(str)  # selection changed on the collection in the signal argument
+    itemsSelected = pyqtSignal(
+        str
+    )  # selection changed on the collection in the signal argument
 
 
 class Collection:
     """Class to hold collection data and state"""
+
     def __init__(self):
         self.name = ""
         self.selected_uids = []
@@ -38,23 +41,29 @@ class Collection:
     def signals(self):
         return self._signals
 
+
 class MainWindowSignals(QObject):
     """
     This class is necessary since non-Qt classes cannot emit Qt signals. Therefore, we create a generic
-    MainWindowSignals() Qt object, that will include all signals used by collections. These will be used according
+    MainWindowSignals() Qt object that will include all signals used by collections. These will be used according
     to the following pattern:
 
     self.signals = MainWindowSignals()
 
     self.signals.specific_signal.emit(some_message)
 
-    etc.
+    Etc.
 
     Basically in this way, instead of using inheritance, we add all signals with a quick move by composition.
     """
 
-    checkboxToggled = pyqtSignal(str, list)  # list uids with checkbox toggled ON
-    propertyToggled = pyqtSignal(str, str, str)  # two strings used for uid and new_property
+    checkboxToggled = pyqtSignal(
+        str
+    )  # checkbox toggled on the collection in the signal argument
+    propertyToggled = pyqtSignal(
+        str
+    )  # property changed on the collection in the signal argument
+
 
 class MainWindow(QWidget):
     """
@@ -69,9 +78,9 @@ class MainWindow(QWidget):
         name_label: Optional[str] = None,
         uid_label: Optional[str] = None,
         prop_label: Optional[str] = None,
+        default_labels: Optional[List[str]] = None,
     ) -> None:
         super().__init__()
-
 
         self._signals = MainWindowSignals()
 
@@ -79,7 +88,9 @@ class MainWindow(QWidget):
         self.collection.name = "this_collection"
         self.collection.selected_uids = []
 
-        self.actors_df = pd.DataFrame(columns=["uid", "actor", "show", "collection", "show_property"])
+        self.actors_df = pd.DataFrame(
+            columns=["uid", "actor", "show", "collection", "show_property"]
+        )
         self.actors_df["uid"] = collection_df["uid"]
         self.actors_df["collection"] = self.collection.name
         self.actors_df["actor"] = collection_df["name"]
@@ -87,7 +98,12 @@ class MainWindow(QWidget):
         self.actors_df["show_property"] = ""
 
         self.tree_widget = self._setup_tree_widget(
-            collection_df, tree_labels, name_label, uid_label, prop_label
+            collection_df,
+            tree_labels,
+            name_label,
+            uid_label,
+            prop_label,
+            default_labels,
         )
         self.setup_signal_connections()
         self._setup_layout()
@@ -103,6 +119,7 @@ class MainWindow(QWidget):
         name_label: Optional[str],
         uid_label: Optional[str],
         prop_label: Optional[str],
+        default_labels: Optional[List[str]],
     ) -> CustomTreeWidget:
         """Create and configure the CustomTreeWidget."""
         return CustomTreeWidget(
@@ -112,10 +129,11 @@ class MainWindow(QWidget):
             name_label=name_label,
             uid_label=uid_label,
             prop_label=prop_label,
+            default_labels=default_labels,
         )
 
     def _setup_layout(self) -> None:
-        """Setup the main window layout."""
+        """Set up the main window layout."""
         layout = QVBoxLayout(self)
         layout.addWidget(self.tree_widget.header_widget)
         layout.addWidget(self.tree_widget)
@@ -125,13 +143,15 @@ class MainWindow(QWidget):
         uids = self.collection.selected_uids
         print("Collection, selected uids:", collection, " - ", uids)
 
-    def _on_checkbox_toggled(self, collection: str, uids: List[str]) -> None:
+    def _on_checkbox_toggled(self, collection):
         """Handle checkbox toggle event."""
-        print("Collection, checked uids:", collection, " - ", uids)
+        actors_df = self.actors_df
+        print("Collection, checked uids:", collection, "\n", actors_df)
 
-    def _on_property_toggled(self, collection: str, uid: str, prop: str) -> None:
+    def _on_property_toggled(self, collection):
         """Handle property toggle event."""
-        print("Collection, changed uid, prop:", collection, " - ", uid, " - ", prop)
+        actors_df = self.actors_df
+        print("Collection, changed uid, prop:", collection, "\n", actors_df)
 
     def setup_signal_connections(self) -> None:
         """Setup signal connections for the main window's tree widget."""
@@ -191,6 +211,7 @@ def main() -> None:
     name_label = "name"
     uid_label = "uid"
     prop_label = "properties"
+    default_labels = ["none", "X", "Y", "Z"]
     collection_df = create_test_data()
 
     main_window = MainWindow(
@@ -199,6 +220,7 @@ def main() -> None:
         name_label=name_label,
         uid_label=uid_label,
         prop_label=prop_label,
+        default_labels=default_labels,
     )
     main_window.show()
 
