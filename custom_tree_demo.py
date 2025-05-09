@@ -1,11 +1,11 @@
+"""custom_tree_demo.py © Andrea Bistacchi"""
+
 import sys
 from typing import List, Optional
-
 import pandas as pd
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
 from PySide6.QtCore import QObject
 from PySide6.QtCore import Signal as pyqtSignal
-
 from custom_tree import CustomTreeWidget
 
 
@@ -23,17 +23,6 @@ class CollectionSignals(QObject):
 
     Basically in this way, instead of using inheritance, we add all signals with a quick move by composition.
     """
-
-    added = pyqtSignal(list)
-    removed = pyqtSignal(list)
-    geom_modified = pyqtSignal(list)  # this includes topology modified
-    data_keys_modified = pyqtSignal(list)
-    data_val_modified = pyqtSignal(list)
-    metadata_modified = pyqtSignal(list)
-    legend_color_modified = pyqtSignal(list)
-    legend_thick_modified = pyqtSignal(list)
-    legend_point_size_modified = pyqtSignal(list)
-    legend_opacity_modified = pyqtSignal(list)
 
     itemsSelected = pyqtSignal(str)  # selection changed on the collection in the signal argument
 
