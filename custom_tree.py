@@ -268,10 +268,10 @@ class CustomTreeWidget(QTreeWidget):
         self.header().hide()
         self.itemExpanded.connect(self.resize_columns)
         self.itemCollapsed.connect(self.resize_columns)
-        self.itemChanged.connect(self.on_checkbox_changed)
+        # self.itemChanged.connect(self.on_checkbox_changed)
+        self.itemChanged.connect(
+            lambda item, column: self.on_checkbox_changed(item, column) if item.childCount() == 0 else None)
         self.itemSelectionChanged.connect(self.emit_selection_changed)
-
-        print(dir(self.parent))
 
     def _recursive_cleanup(self, item):
         """Recursively clean up widgets in the tree item and its children."""
