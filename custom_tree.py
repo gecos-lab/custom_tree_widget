@@ -216,8 +216,8 @@ class CustomTreeWidget(QTreeWidget):
     :type tree_labels: list[str] | None
     :ivar name_label: The label used for naming individual tree items.
     :type name_label: str | None
-    :ivar combo_label: The label used to populate QComboBox with data in tree items.
-    :type combo_label: str | None
+    :ivar prop_label: The label used to populate QComboBox with data in tree items.
+    :type prop_label: str | None
     :ivar uid_label: The label used to uniquely identify items in the tree through UIDs.
     :type uid_label: str | None
     :ivar checked_uids: List of UIDs for the currently checked items in the tree.
@@ -234,28 +234,23 @@ class CustomTreeWidget(QTreeWidget):
     :type header_widget: CustomHeader
     """
 
-    itemsSelected = Signal(str)  # selection changed on the collection in the signal argument - uids are stored in the parent collection selection list
-    checkboxToggled = Signal(str, list)  # list uids with checkbox toggled ON
-    propertyToggled = Signal(str, str, str)  # two strings used for uid and new_property
-
     def __init__(
         self,
         parent=None,  # Store parent reference
         collection_df=None,
         tree_labels=None,
         name_label=None,
-        combo_label=None,
         uid_label=None,
+        prop_label=None,
     ):
         super().__init__()
         self.parent = parent  # Store parent reference
         self.collection_df = collection_df
         self.tree_labels = tree_labels
         self.name_label = name_label
-        self.combo_label = combo_label
+        self.prop_label = prop_label
         self.uid_label = uid_label
         self.checked_uids = []
-        # self.selected_uids = []
         self.combo_values = {}
         self.header_labels = ["Tree", name_label]
         self.blockSignals(False)
@@ -273,10 +268,12 @@ class CustomTreeWidget(QTreeWidget):
         self.itemChanged.connect(self.on_checkbox_changed)
         self.itemSelectionChanged.connect(self.emit_selection_changed)
 
+        print(dir(self.parent))
+
     def preserve_selection(func):
         """Decorator used to preserve selection during several common tree widget operations."""
         def wrapper(self, *args, **kwargs):
-            current_selection = self.parent.selected_uids.copy()
+            current_selection = self.parent.collection.selected_uids.copy()
             result = func(self, *args, **kwargs)
             self.restore_selection(current_selection)
             return result
@@ -286,21 +283,8 @@ class CustomTreeWidget(QTreeWidget):
         """
         Populates the tree widget with hierarchical data derived from the collection
         dataframe based on the current order of header buttons.
-
-        This method organizes items into a hierarchical tree structure based on the
-        column hierarchy defined by the header widget. Each node in the tree
-        corresponds to a particular entity, and child nodes represent nested entities.
-        It uses a QTreeWidgetItem for each entry and allows the inclusion of
-        QComboBox widgets in the last column for property selection.
-
-        All methods and components involved are interconnected to maintain and restore
-        data states dynamically during the widget population process.
-
-        :param self: Instance of the enclosing object.
-        :returns: None
         """
-
-        # Save current combo values before clearing the tree, e.g. when reordering columns
+        # Save current combo values before clearing the tree
         if self.invisibleRootItem().childCount() > 0:
             for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
                 uid = self.get_item_uid(item)
@@ -308,7 +292,10 @@ class CustomTreeWidget(QTreeWidget):
                     combo = self.itemWidget(item, self.columnCount() - 1)
                     if combo:
                         self.combo_values[uid] = combo.currentText()
-
+        
+        # Clean up existing widgets before clearing the tree
+        self._cleanup_tree_widgets()
+        
         self.clear()
         hierarchy = self.header_widget.get_order()
         for _, row in self.collection_df.iterrows():
@@ -333,7 +320,11 @@ class CustomTreeWidget(QTreeWidget):
 
             # Create and set up the QComboBox
             property_combo = QComboBox()
-            property_combo.addItems(row[self.combo_label])
+            property_combo.addItem("none")
+            property_combo.addItem("X")
+            property_combo.addItem("Y")
+            property_combo.addItem("Z")
+            property_combo.addItems(row[self.prop_label])
 
             # Restore the previously selected value if it exists
             if uid in self.combo_values:
@@ -364,7 +355,7 @@ class CustomTreeWidget(QTreeWidget):
         """
 
         # Store the current selection and checkbox states before repopulating
-        saved_selected = self.parent.selected_uids.copy()
+        saved_selected = self.parent.collection.selected_uids.copy()
         saved_checked = self.checked_uids.copy()
 
         # Save any additional checkboxes that might not be in self.checked_uids yet
@@ -404,15 +395,14 @@ class CustomTreeWidget(QTreeWidget):
                     item.setSelected(True)
 
         # Restore our saved selection list directly
-        self.parent.selected_uids = saved_selected
+        self.parent.collection.selected_uids = saved_selected
 
         # Unblock signals
         self.blockSignals(False)
 
         # Emit selection signal to notify any listeners of the restored selection
         if saved_selected:
-            # self.itemsSelected.emit(self.parent.collection, self.parent.selected_uids)
-            self.itemsSelected.emit(self.parent.collection)
+            self.parent.collection.signals.itemsSelected.emit(self.parent.collection.name)
 
     def update_all_parent_check_states(self):
         """
@@ -448,20 +438,15 @@ class CustomTreeWidget(QTreeWidget):
         :return: None
         """
 
-        # Instead of:
-        # checked_items = []
-        # for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
-        #     if item.checkState(0) == Qt.Checked:
-        #         uid = self.get_item_uid(item)
-        #         if uid:
-        #             checked_items.append(uid)
-        # Use:
+        # if
+
         checked_items = [
             uid for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive)
             if item.checkState(0) == Qt.Checked
             and (uid := self.get_item_uid(item))
         ]
-        self.checkboxToggled.emit(self.parent.collection, checked_items)
+
+        self.parent.signals.checkboxToggled.emit(self.parent.collection.name, checked_items)
 
     def emit_selection_changed(self):
         """
@@ -480,17 +465,17 @@ class CustomTreeWidget(QTreeWidget):
         """
 
         # Clear the current selection list
-        self.parent.selected_uids = []
+        self.parent.collection.selected_uids = []
 
         # Add the UID of each selected item to the list
         for item in self.selectedItems():
             uid = self.get_item_uid(item)
             if uid:
-                self.parent.selected_uids.append(uid)
+                self.parent.collection.selected_uids.append(uid)
 
         # Emit the signal with the updated selection list
-        # self.itemsSelected.emit(self.parent.collection, self.parent.selected_uids)
-        self.itemsSelected.emit(self.parent.collection)
+
+        self.parent.collection.signals.itemsSelected.emit(self.parent.collection.name)
 
     def emit_property_changed(self, item, new_property):
         """
@@ -510,7 +495,7 @@ class CustomTreeWidget(QTreeWidget):
 
         uid = self.get_item_uid(item)
         if uid:
-            self.propertyToggled.emit(self.parent.collection, uid, new_property)
+            self.parent.signals.propertyToggled.emit(self.parent.collection.name, uid, new_property)
 
     def get_item_uid(self, item):
         """
@@ -570,16 +555,6 @@ class CustomTreeWidget(QTreeWidget):
         parent.addChild(item)
         return item
 
-    def update_parent_check_states(self, item):
-        """Updates parent check states based on children states."""
-        parent = item.parent()
-        if not parent:
-            return
-            
-        children = [parent.child(i) for i in range(parent.childCount())]
-        parent.setCheckState(0, self._determine_parent_state(children))
-        self.update_parent_check_states(parent)
-
     def _determine_parent_state(self, children):
         """Determine appropriate check state based on children states."""
         states = {child.checkState(0) for child in children}
@@ -587,15 +562,6 @@ class CustomTreeWidget(QTreeWidget):
         if len(states) == 1:
             return states.pop()  # If all children have same state, use that
         return Qt.PartiallyChecked
-
-    def emit_checkbox_toggled(self):
-        """Emits signal with currently checked items."""
-        checked_items = [
-            uid for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive)
-            if item.checkState(0) == Qt.Checked
-            and (uid := self.get_item_uid(item))
-        ]
-        self.checkboxToggled.emit(self.parent.collection, checked_items)
 
     @preserve_selection
     def on_checkbox_changed(self, item, column):
@@ -636,7 +602,7 @@ class CustomTreeWidget(QTreeWidget):
         """
 
         # Store current selection before processing checkbox changes
-        current_selection = self.parent.selected_uids.copy()
+        current_selection = self.parent.collection.selected_uids.copy()
         
         if column == 0 and item.checkState(0) != Qt.PartiallyChecked:
             self.blockSignals(True)
@@ -683,22 +649,6 @@ class CustomTreeWidget(QTreeWidget):
         """
 
         parent = item.parent()
-        # if parent:
-        #         all_checked = all(
-        #             child.checkState(0) == Qt.Checked
-        #             for child in [parent.child(i) for i in range(parent.childCount())]
-        #         )
-        #         all_unchecked = all(
-        #             child.checkState(0) == Qt.Unchecked
-        #             for child in [parent.child(i) for i in range(parent.childCount())]
-        #         )
-        #         if all_checked:
-        #             parent.setCheckState(0, Qt.Checked)
-        #         elif all_unchecked:
-        #             parent.setCheckState(0, Qt.Unchecked)
-        #         else:
-        #             parent.setCheckState(0, Qt.PartiallyChecked)
-        #         self.update_parent_check_states(parent)
         if parent:
             children = [parent.child(i) for i in range(parent.childCount())]
             check_states = [child.checkState(0) for child in children]
@@ -751,7 +701,7 @@ class CustomTreeWidget(QTreeWidget):
         """
 
         # Store the current selection
-        current_selection = self.parent.selected_uids.copy()
+        current_selection = self.parent.collection.selected_uids.copy()
 
         # Update the stored combo value
         uid = self.get_item_uid(item)
@@ -793,14 +743,14 @@ class CustomTreeWidget(QTreeWidget):
                 item.setSelected(True)
 
         # Restore our selection list
-        self.parent.selected_uids = uids_to_select.copy()
+        self.parent.collection.selected_uids = uids_to_select.copy()
 
         # Unblock signals
         self.blockSignals(False)
 
     def create_property_combo(self, row, uid):
         property_combo = QComboBox()
-        property_combo.addItems(row[self.combo_label])
+        property_combo.addItems(row[self.prop_label])
         
         if uid in self.combo_values:
             index = property_combo.findText(self.combo_values[uid])
@@ -808,17 +758,22 @@ class CustomTreeWidget(QTreeWidget):
                 property_combo.setCurrentIndex(index)
                 
         return property_combo
-def create_property_combo(self, row, uid):
-    """Create and configure a property combo box."""
-    combo = QComboBox()
-    combo.addItems(row[self.combo_label])
-    
-    if uid in self.combo_values:
-        self._restore_combo_selection(combo, uid)
-    return combo
-    
-def _restore_combo_selection(self, combo, uid):
-    """Restore previous combo box selection if available."""
-    index = combo.findText(self.combo_values[uid])
-    if index >= 0:
-        combo.setCurrentIndex(index)
+
+    def _cleanup_tree_widgets(self):
+        """Clean up existing widgets in the tree."""
+        root = self.invisibleRootItem()
+        for i in range(root.childCount()):
+            item = root.child(i)
+            self._recursive_cleanup(item)
+
+    def _recursive_cleanup(self, item):
+        """Recursively clean up widgets in the tree item and its children."""
+        for i in range(item.childCount()):
+            child = item.child(i)
+            self._recursive_cleanup(child)
+        
+        # Remove and delete the widget
+        widget = self.itemWidget(item, self.columnCount() - 1)
+        if widget:
+            widget.deleteLater()
+            self.removeItemWidget(item, self.columnCount() - 1)
