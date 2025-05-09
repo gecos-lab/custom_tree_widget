@@ -29,6 +29,7 @@ class MainWindow(QWidget):
         self.tree_widget = self._setup_tree_widget(
             collection_df, tree_labels, name_label, uid_label, combo_label
         )
+        self.setup_signal_connections()
         self._setup_layout()
 
     def _setup_tree_widget(
@@ -54,6 +55,25 @@ class MainWindow(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(self.tree_widget.header_widget)
         layout.addWidget(self.tree_widget)
+
+    def _on_items_selected(self, collection):
+        """Handle items selection event."""
+        uids = self.selected_uids
+        print("Collection, selected uids:", collection, " - ", uids)
+
+    def _on_checkbox_toggled(self, collection: str, uids: List[str]) -> None:
+        """Handle checkbox toggle event."""
+        print("Collection, checked uids:", collection, " - ", uids)
+
+    def _on_property_toggled(self, collection: str, uid: str, prop: str) -> None:
+        """Handle property toggle event."""
+        print("Collection, changed uid, prop:", collection, " - ", uid, " - ", prop)
+
+    def setup_signal_connections(self) -> None:
+        """Setup signal connections for the main window's tree widget."""
+        self.tree_widget.itemsSelected.connect(self._on_items_selected)
+        self.tree_widget.checkboxToggled.connect(self._on_checkbox_toggled)
+        self.tree_widget.propertyToggled.connect(self._on_property_toggled)
 
 
 def create_test_data() -> pd.DataFrame:
@@ -99,21 +119,6 @@ def create_test_data() -> pd.DataFrame:
     )
 
 
-def setup_signal_connections(window: MainWindow) -> None:
-    """Setup signal connections for the main window's tree widget."""
-    window.tree_widget.checkboxToggled.connect(
-        lambda coll, uids: print("Collection, checked uids:", coll, " - ", uids)
-    )
-    window.tree_widget.itemsSelected.connect(
-        lambda coll, uids: print("Collection, selected uids:", coll, " - ", uids)
-    )
-    window.tree_widget.propertyToggled.connect(
-        lambda coll, uid, prop: print(
-            "Collection, changed uid, prop:", coll, " - ", uid, " - ", prop
-        )
-    )
-
-
 def main() -> None:
     """Main application entry point."""
     app = QApplication(sys.argv)
@@ -132,7 +137,6 @@ def main() -> None:
         combo_label=combo_label,
     )
     main_window.show()
-    setup_signal_connections(main_window)
 
     sys.exit(app.exec())
 

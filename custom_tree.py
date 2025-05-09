@@ -234,8 +234,8 @@ class CustomTreeWidget(QTreeWidget):
     :type header_widget: CustomHeader
     """
 
+    itemsSelected = Signal(str)  # selection changed on the collection in the signal argument - uids are stored in the parent collection selection list
     checkboxToggled = Signal(str, list)  # list uids with checkbox toggled ON
-    itemsSelected = Signal(str, list)  # list of selected uids
     propertyToggled = Signal(str, str, str)  # two strings used for uid and new_property
 
     def __init__(
@@ -411,7 +411,8 @@ class CustomTreeWidget(QTreeWidget):
 
         # Emit selection signal to notify any listeners of the restored selection
         if saved_selected:
-            self.itemsSelected.emit(self.parent.collection, self.parent.selected_uids)
+            # self.itemsSelected.emit(self.parent.collection, self.parent.selected_uids)
+            self.itemsSelected.emit(self.parent.collection)
 
     def update_all_parent_check_states(self):
         """
@@ -488,7 +489,8 @@ class CustomTreeWidget(QTreeWidget):
                 self.parent.selected_uids.append(uid)
 
         # Emit the signal with the updated selection list
-        self.itemsSelected.emit(self.parent.collection, self.parent.selected_uids)
+        # self.itemsSelected.emit(self.parent.collection, self.parent.selected_uids)
+        self.itemsSelected.emit(self.parent.collection)
 
     def emit_property_changed(self, item, new_property):
         """
