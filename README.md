@@ -2,8 +2,6 @@
 
 A custom PySide6 QTreeWidget with a hierarchic draggable, selectable and checkable structure, to be used in PZero.
 
-custom_tree_widget © 2020 by Andrea Bistacchi, released under GNU AGPLv3 license
+custom_tree_widget © 2025 by Andrea Bistacchi, released under GNU AGPLv3 license
 
-to do:
-- avoid multiple checkboxToggled signals when more than one item is checked/unchecked
-- keep selection when combobox changed - SEEMS IMPOSSIBLE
+to do: take checked/unchecked state from main window actors_df, both at initialization (populate_tree) and when rearranging (rearrange_hierarchy). this can be extended also to other methods that use saved_checked and similar variables

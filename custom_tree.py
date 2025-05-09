@@ -622,22 +622,23 @@ class CustomTreeWidget(QTreeWidget):
         """
 
         # Update the checked state in actors_df based on the current tree state
-        for item in self.findItems(
-            "", Qt.MatchContains | Qt.MatchRecursive, 1
-        ):  # Search in the name column (1)
+        turn_on_uids = []
+        turn_off_uids = []
+        for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive, 1):  # Search in the name column (1)
             uid = self.get_item_uid(item)
             if uid:
                 is_checked = item.checkState(0) == Qt.Checked
-                is_shown = self.parent.actors_df.loc[
-                    self.parent.actors_df["uid"] == uid, "show"
-                ].iloc[0]
+                is_shown = self.parent.actors_df.loc[self.parent.actors_df["uid"] == uid, "show"].iloc[0]
                 if is_checked != is_shown:
-                    self.parent.actors_df.loc[
-                        self.parent.actors_df["uid"] == uid, "show"
-                    ] = is_checked
-
+                    self.parent.actors_df.loc[self.parent.actors_df["uid"] == uid, "show"] = is_checked
+                    if is_checked:
+                        turn_on_uids.append(uid)
+                        print("turn_on_uids: ", turn_on_uids)
+                    else:
+                        turn_off_uids.append(uid)
+                        print("turn_off_uids: ", turn_off_uids)
         # Emit signal
-        self.parent.signals.checkboxToggled.emit(self.parent.collection.name)
+        self.parent.signals.checkboxToggled.emit(self.parent.collection.name, turn_on_uids, turn_off_uids)
 
     @preserve_selection
     def on_checkbox_changed(self, item, column):
@@ -722,7 +723,7 @@ class CustomTreeWidget(QTreeWidget):
             self.parent.actors_df.loc[
                 self.parent.actors_df["uid"] == uid, "show_property"
             ] = text
-            self.parent.signals.propertyToggled.emit(self.parent.collection.name)
+            self.parent.signals.propertyToggled.emit(self.parent.collection.name, uid, text)
 
             # self.emit_property_changed(item, text)
 

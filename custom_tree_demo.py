@@ -57,12 +57,10 @@ class MainWindowSignals(QObject):
     Basically in this way, instead of using inheritance, we add all signals with a quick move by composition.
     """
 
-    checkboxToggled = pyqtSignal(
-        str
-    )  # checkbox toggled on the collection in the signal argument
-    propertyToggled = pyqtSignal(
-        str
-    )  # property changed on the collection in the signal argument
+    # signal broadcast on checkbox toggled with the collection and lists of uids to be turned on or off as arguments
+    checkboxToggled = pyqtSignal(str, list, list)
+    # signal broadcast on property combobox changed with the collection, uid and property as arguments
+    propertyToggled = pyqtSignal(str, str, str)
 
 
 class MainWindow(QWidget):
@@ -143,21 +141,21 @@ class MainWindow(QWidget):
         uids = self.collection.selected_uids
         print("Collection, selected uids:", collection, " - ", uids)
 
-    def _on_checkbox_toggled(self, collection):
+    def _on_checkbox_toggled(self, collection, turn_on_uids, turn_off_uids):
         """Handle checkbox toggle event."""
         actors_df = self.actors_df
-        print("Collection, checked uids:", collection, "\n", actors_df)
+        print("Collection, turn_on_uids, turn_off_uids, actors_df:", collection, turn_on_uids, turn_off_uids, "\n", actors_df)
 
-    def _on_property_toggled(self, collection):
+    def _on_property_toggled(self, collection, changed_uid, changed_prop):
         """Handle property toggle event."""
         actors_df = self.actors_df
-        print("Collection, changed uid, prop:", collection, "\n", actors_df)
+        print("Collection, changed_uid, changed_prop, actors_df:", collection, changed_uid, changed_prop, "\n", actors_df)
 
     def setup_signal_connections(self) -> None:
         """Setup signal connections for the main window's tree widget."""
         self.collection.signals.itemsSelected.connect(self._on_items_selected)
-        self.signals.checkboxToggled.connect(self._on_checkbox_toggled)
-        self.signals.propertyToggled.connect(self._on_property_toggled)
+        self.signals.checkboxToggled.connect(lambda collection, turn_on_uids, turn_off_uids:self._on_checkbox_toggled(collection, turn_on_uids, turn_off_uids))
+        self.signals.propertyToggled.connect(lambda collection, changed_uid, changed_prop: self._on_property_toggled(collection, changed_uid, changed_prop))
 
 
 def create_test_data() -> pd.DataFrame:
