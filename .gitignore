@@ -174,4 +174,4 @@ cython_debug/
 .pypirc
 
 # PyCharm IDE settings
-./.idea/
+.idea/

@@ -84,7 +84,8 @@ class MainWindow(QWidget):
 
         self.collection = Collection()
         self.collection.name = "this_collection"
-        self.collection.selected_uids = []
+        # self.collection.selected_uids = []
+        self.collection.selected_uids = ["2", "4", "6"]
 
         self.actors_df = pd.DataFrame(
             columns=["uid", "actor", "show", "collection", "show_property"]
@@ -92,8 +93,10 @@ class MainWindow(QWidget):
         self.actors_df["uid"] = collection_df["uid"]
         self.actors_df["collection"] = self.collection.name
         self.actors_df["actor"] = collection_df["name"]
-        self.actors_df["show"] = True
-        self.actors_df["show_property"] = ""
+        # self.actors_df["show"] = True
+        # self.actors_df["show_property"] = "none"
+        self.actors_df["show"] = ["True", "False", "True", "False", "True", "False"]
+        self.actors_df["show_property"] = ["none", "X", "Y", "Z", "none", "none"]
 
         self.tree_widget = self._setup_tree_widget(
             collection_df,
@@ -144,18 +147,40 @@ class MainWindow(QWidget):
     def _on_checkbox_toggled(self, collection, turn_on_uids, turn_off_uids):
         """Handle checkbox toggle event."""
         actors_df = self.actors_df
-        print("Collection, turn_on_uids, turn_off_uids, actors_df:", collection, turn_on_uids, turn_off_uids, "\n", actors_df)
+        print(
+            "Collection, turn_on_uids, turn_off_uids, actors_df:",
+            collection,
+            turn_on_uids,
+            turn_off_uids,
+            "\n",
+            actors_df,
+        )
 
     def _on_property_toggled(self, collection, changed_uid, changed_prop):
         """Handle property toggle event."""
         actors_df = self.actors_df
-        print("Collection, changed_uid, changed_prop, actors_df:", collection, changed_uid, changed_prop, "\n", actors_df)
+        print(
+            "Collection, changed_uid, changed_prop, actors_df:",
+            collection,
+            changed_uid,
+            changed_prop,
+            "\n",
+            actors_df,
+        )
 
     def setup_signal_connections(self) -> None:
         """Setup signal connections for the main window's tree widget."""
         self.collection.signals.itemsSelected.connect(self._on_items_selected)
-        self.signals.checkboxToggled.connect(lambda collection, turn_on_uids, turn_off_uids:self._on_checkbox_toggled(collection, turn_on_uids, turn_off_uids))
-        self.signals.propertyToggled.connect(lambda collection, changed_uid, changed_prop: self._on_property_toggled(collection, changed_uid, changed_prop))
+        self.signals.checkboxToggled.connect(
+            lambda collection, turn_on_uids, turn_off_uids: self._on_checkbox_toggled(
+                collection, turn_on_uids, turn_off_uids
+            )
+        )
+        self.signals.propertyToggled.connect(
+            lambda collection, changed_uid, changed_prop: self._on_property_toggled(
+                collection, changed_uid, changed_prop
+            )
+        )
 
 
 def create_test_data() -> pd.DataFrame:
