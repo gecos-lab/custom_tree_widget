@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QPushButton,
     QHBoxLayout,
+    QMessageBox,
 )
 
 from PySide6.QtCore import QObject, Qt
