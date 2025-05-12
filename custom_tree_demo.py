@@ -317,41 +317,62 @@ class MainWindow(QWidget):
             )
             return
 
-        # Get first item's current properties from collection_df
+        # Get first item's current properties from collection_df - with safety checks
         first_uid = selected_uids[0]
         mask = self.tree_widget.collection_df[self.uid_label] == first_uid
-        current_props = self.tree_widget.collection_df.loc[mask, self.prop_label].iloc[
-            0
-        ]
+        matching_rows = self.tree_widget.collection_df[mask]
+
+        if matching_rows.empty:
+            QMessageBox.warning(
+                self,
+                "Error",
+                f"Could not find item with UID: {first_uid} in the collection.",
+            )
+            return
+
+        current_props = matching_rows[self.prop_label].iloc[0]
 
         # Alternate between adding and removing a property
-        if len(current_props) > 1:
-            # Remove the last property
-            new_props = current_props[:-1]
+        if isinstance(current_props, list):
+            if len(current_props) > 1:
+                # Remove the last property
+                new_props = current_props[:-1]
+            else:
+                # Add a new property
+                new_props = current_props.copy()  # Make a copy of the list
+                new_props.append(f"new_prop_{len(current_props)}")
         else:
-            # Add a new property
-            new_props = current_props.copy()  # Make a copy of the list
-            new_props.append(f"new_prop_{len(current_props)}")
+            # Handle case where current_props is not a list
+            new_props = ["new_prop_1"]
 
         # Update properties in the DataFrame using at[] to handle lists
         for uid in selected_uids:
             mask = self.tree_widget.collection_df[self.uid_label] == uid
-            idx = self.tree_widget.collection_df[mask].index[0]
-            self.tree_widget.collection_df.at[idx, self.prop_label] = new_props.copy()
+            matching_rows = self.tree_widget.collection_df[mask]
+            if not matching_rows.empty:
+                idx = matching_rows.index[0]
+                self.tree_widget.collection_df.at[idx, self.prop_label] = (
+                    new_props.copy()
+                )
 
         # Update the tree widget's combo boxes
-        for uid in selected_uids:
-            items = self.tree_widget.findItems("", Qt.MatchContains | Qt.MatchRecursive)
-            for item in items:
-                if self.tree_widget.get_item_uid(item) == uid:
-                    combo = self.tree_widget.itemWidget(
-                        item, self.tree_widget.columnCount() - 1
+        items = self.tree_widget.findItems("", Qt.MatchContains | Qt.MatchRecursive)
+        for item in items:
+            item_uid = self.tree_widget.get_item_uid(item)
+            if item_uid in selected_uids:
+                combo = self.tree_widget.itemWidget(
+                    item, self.tree_widget.columnCount() - 1
+                )
+                if combo:
+                    current_value = combo.currentText()
+                    combo.clear()
+                    combo.addItems(
+                        ["none"] + self.tree_widget.default_labels + new_props
                     )
-                    if combo:
-                        combo.clear()
-                        combo.addItems(
-                            ["none"] + self.tree_widget.default_labels + new_props
-                        )
+                    # Try to restore the previous selection if it still exists
+                    index = combo.findText(current_value)
+                    if index >= 0:
+                        combo.setCurrentIndex(index)
 
     def test_random_selection(self):
         """Test function to emit random selection of UIDs."""

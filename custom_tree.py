@@ -417,6 +417,38 @@ class CustomTreeWidget(QTreeWidget):
         ):
             self.restore_selection(self.parent.collection.selected_uids)
 
+    def preserve_selection(func):
+        """
+        Decorator that preserves the current selection in a collection while executing
+        the wrapped function. The selection in the collection is restored to its
+        original state after the wrapped function completes.
+
+        This ensures that changes made during the execution of the wrapped function
+        do not affect the selection state of the collection.
+
+        :param func: The function to be wrapped by the decorator.
+        :type func: Callable
+        :return: The wrapped function with selection preservation functionality added.
+        :rtype: Callable
+        """
+
+        def wrapper(self, *args, **kwargs):
+            """
+            CustomTreeWidget class extends QTreeWidget to provide additional functionality
+            for preserving and restoring selection during method execution.
+            This widget can maintain the currently selected items within the parent
+            collection when specific operations are performed.
+
+            Attributes:
+                None
+            """
+            current_selection = self.parent.collection.selected_uids.copy()
+            result = func(self, *args, **kwargs)
+            self.restore_selection(current_selection)
+            return result
+
+        return wrapper
+
     def populate_tree(self):
         """
         Populates a tree widget with hierarchical data and correctly configures each item
@@ -518,6 +550,7 @@ class CustomTreeWidget(QTreeWidget):
         # Update parent checkbox states based on the imported states
         self.update_all_parent_check_states()
 
+    @preserve_selection
     def rearrange_hierarchy(self):
         """
         Rearranges the tree hierarchy, preserving and restoring the selection and checkbox
@@ -579,6 +612,7 @@ class CustomTreeWidget(QTreeWidget):
                 self.parent.collection.name
             )
 
+    @preserve_selection
     def add_items_to_tree(self, uids_to_add):
         """
         Adds the specified items to the tree view, creating necessary hierarchical
@@ -678,6 +712,7 @@ class CustomTreeWidget(QTreeWidget):
         self.resize_columns()
         return True
 
+    @preserve_selection
     def remove_items_from_tree(self, uids_to_remove):
         """
         Removes specified items from a tree structure and updates the state of the tree.
@@ -770,38 +805,6 @@ class CustomTreeWidget(QTreeWidget):
         item.setCheckState(0, Qt.Unchecked)
         parent.addChild(item)
         return item
-
-    def preserve_selection(func):
-        """
-        Decorator that preserves the current selection in a collection while executing
-        the wrapped function. The selection in the collection is restored to its
-        original state after the wrapped function completes.
-
-        This ensures that changes made during the execution of the wrapped function
-        do not affect the selection state of the collection.
-
-        :param func: The function to be wrapped by the decorator.
-        :type func: Callable
-        :return: The wrapped function with selection preservation functionality added.
-        :rtype: Callable
-        """
-
-        def wrapper(self, *args, **kwargs):
-            """
-            CustomTreeWidget class extends QTreeWidget to provide additional functionality
-            for preserving and restoring selection during method execution.
-            This widget can maintain the currently selected items within the parent
-            collection when specific operations are performed.
-
-            Attributes:
-                None
-            """
-            current_selection = self.parent.collection.selected_uids.copy()
-            result = func(self, *args, **kwargs)
-            self.restore_selection(current_selection)
-            return result
-
-        return wrapper
 
     def restore_selection(self, uids_to_select):
         """
