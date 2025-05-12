@@ -1,10 +1,14 @@
 """custom_tree_demo.py © Andrea Bistacchi"""
 
 import sys
+import random
+import time
+
 from typing import List, Optional
 import pandas as pd
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
-from PySide6.QtCore import QObject
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton
+
+from PySide6.QtCore import QObject, Qt
 from PySide6.QtCore import Signal as pyqtSignal
 from custom_tree import CustomTreeWidget
 
@@ -108,6 +112,7 @@ class MainWindow(QWidget):
         )
         self.setup_signal_connections()
         self._setup_layout()
+        self.add_test_button()
 
     @property
     def signals(self):
@@ -181,6 +186,87 @@ class MainWindow(QWidget):
                 collection, changed_uid, changed_prop
             )
         )
+
+    def add_test_button(self):
+        """
+        Adds a test button to the window for running the add items test.
+        """
+        test_button = QPushButton("Run Add Items Test")
+        layout = self.layout()
+        layout.addWidget(test_button)
+
+        def run_add_items_test():
+            """
+            Test function that adds random items to the tree and measures performance.
+            """
+            # Get the maximum current UID
+            current_max_uid = max(int(uid) for uid in self.actors_df["uid"])
+
+            # Get original data structure
+            orig_df = self.tree_widget.collection_df
+
+            # Create new random data entries (between 1 and 5)
+            num_to_add = random.randint(1, 5)
+
+            # Create new entries by randomly shuffling values within each column
+            new_entries = []
+            for i in range(num_to_add):
+                new_uid = str(current_max_uid + i + 1)
+                new_entry = {
+                    "role": random.choice(orig_df["role"].tolist()),
+                    "topology": random.choice(orig_df["topology"].tolist()),
+                    "feature": random.choice(orig_df["feature"].tolist()),
+                    "scenario": random.choice(orig_df["scenario"].tolist()),
+                    "name": f"New_Feature_{new_uid}",
+                    "uid": new_uid,
+                    "properties": random.choice(orig_df["properties"].tolist()).copy()
+                }
+                new_entries.append(new_entry)
+
+            # Create DataFrame from new entries
+            new_df = pd.DataFrame(new_entries)
+
+            print(f"\nTesting addition of {num_to_add} items...")
+            print(f"New entries:\n{new_df}")
+
+            # Measure time
+            start_time = time.time()
+
+            # Update tree widget's collection_df
+            self.tree_widget.collection_df = pd.concat([self.tree_widget.collection_df, new_df], ignore_index=True)
+
+            # Add items to tree widget
+            used_individual_add = self.tree_widget.add_items_to_tree(new_df["uid"].tolist())
+
+            # Update actors_df with new entries - ensure "show" values are strings
+            new_actors = pd.DataFrame({
+                "uid": new_df["uid"],
+                "actor": new_df["name"],
+                "show": ["True" for _ in range(len(new_df))],  # Explicitly using string "True"
+                "collection": [self.collection.name] * len(new_df),
+                "show_property": ["none"] * len(new_df)
+            })
+
+            # Convert show column to string type to ensure consistency
+            new_actors["show"] = new_actors["show"].astype(str)
+            self.actors_df = pd.concat([self.actors_df, new_actors], ignore_index=True)
+
+            end_time = time.time()
+            elapsed_time = (end_time - start_time) * 1000  # Convert to milliseconds
+
+            print(f"Time taken: {elapsed_time:.2f} ms")
+            print(f"Method used: {'Individual add' if used_individual_add else 'Complete rebuild'}")
+
+            # Verify items were added
+            for uid in new_df["uid"]:
+                found = False
+                for item in self.tree_widget.findItems("", Qt.MatchContains | Qt.MatchRecursive):
+                    if self.tree_widget.get_item_uid(item) == uid:
+                        found = True
+                        break
+                print(f"UID {uid}: {'✓ Added successfully' if found else '✗ Not found!'}")
+
+        test_button.clicked.connect(run_add_items_test)
 
 
 def create_test_data() -> pd.DataFrame:

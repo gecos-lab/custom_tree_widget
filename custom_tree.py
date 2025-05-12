@@ -532,6 +532,10 @@ class CustomTreeWidget(QTreeWidget):
         hierarchy = self.header_widget.get_order()
         print("Populating tree with checkbox states:")
 
+        # Ensure actors_df 'show' column is string type before we start
+        if hasattr(self.parent, "actors_df"):
+            self.parent.actors_df["show"] = self.parent.actors_df["show"].astype(str)
+
         for _, row in self.collection_df.iterrows():
             parent = self.invisibleRootItem()
             for level in hierarchy:
@@ -552,21 +556,16 @@ class CustomTreeWidget(QTreeWidget):
                 if hasattr(self.parent, "actors_df"):
                     mask = self.parent.actors_df["uid"] == uid
                     if any(mask):
-                        show_state = self.parent.actors_df.loc[mask, "show"].iloc[0]
-                        print(
-                            f"UID {uid}: Raw show_state = {show_state}, type = {type(show_state)}"
-                        )
+                        show_state = str(self.parent.actors_df.loc[mask, "show"].iloc[0])
+                        print(f"UID {uid}: Raw show_state = {show_state}, type = {type(show_state)}")
 
-                        # Convert string 'True'/'False' to actual boolean
+                        # Ensure we're working with string values
                         is_checked = show_state.lower() == "true"
-
                         checkbox_state = Qt.Checked if is_checked else Qt.Unchecked
                         if is_checked:
                             self.checked_uids.append(uid)
 
-                        print(
-                            f"UID {uid}: Parsed boolean = {is_checked}, Final checkbox_state = {checkbox_state}"
-                        )
+                        print(f"UID {uid}: Parsed boolean = {is_checked}, Final checkbox_state = {checkbox_state}")
                         name_item.setCheckState(0, checkbox_state)
             else:
                 name_item.setFlags(name_item.flags() | Qt.ItemIsUserCheckable)
@@ -797,3 +796,81 @@ class CustomTreeWidget(QTreeWidget):
 
         # # Restore selection after combo box interaction
         # self.restore_selection(current_selection)
+
+    def add_items_to_tree(self, uids_to_add):
+        """
+        Adds new items to the tree widget based on provided UIDs.
+        Chooses the most efficient method based on the number of items.
+        """
+        # If adding more than 20% of total items, rebuild entire tree
+        total_items = len(self.collection_df)
+        if len(uids_to_add) > total_items * 0.2:
+            self.populate_tree()
+            return False
+
+        hierarchy = self.header_widget.get_order()
+
+        for uid in uids_to_add:
+            # Get the row from collection_df for this UID
+            row = self.collection_df.loc[self.collection_df[self.uid_label] == uid].iloc[0]
+
+            # Find or create the path in the tree hierarchy
+            parent = self.invisibleRootItem()
+            # Keep track of created/found parents to expand them later
+            parents_to_expand = []
+
+            for level in hierarchy:
+                # Set checkbox flags for hierarchy items
+                parent = self.get_or_create_item(parent, row[level])
+                parents_to_expand.append(parent)
+                if not (parent.flags() & Qt.ItemIsUserCheckable):
+                    parent.setFlags(parent.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate)
+                    parent.setCheckState(0, Qt.Unchecked)
+
+            # Create item with empty first column and name in second column
+            name_item = QTreeWidgetItem(["", row[self.name_label]])
+            name_item.setFlags(name_item.flags() | Qt.ItemIsUserCheckable)
+            name_item.setCheckState(0, Qt.Unchecked)  # Set initial state
+
+            # Set the UID and checkbox state
+            name_item.setData(0, Qt.UserRole, uid)
+
+            # Set initial checkbox state based on actors_df if available
+            if hasattr(self.parent, "actors_df"):
+                mask = self.parent.actors_df["uid"] == uid
+                if any(mask):
+                    show_state = str(self.parent.actors_df.loc[mask, "show"].iloc[0])
+                    is_checked = show_state.lower() == "true"
+                    checkbox_state = Qt.Checked if is_checked else Qt.Unchecked
+                    if is_checked:
+                        self.checked_uids.append(uid)
+                    name_item.setCheckState(0, checkbox_state)
+
+            parent.addChild(name_item)
+
+            # Create and set up the QComboBox...
+            property_combo = QComboBox()
+            for label in self.default_labels:
+                property_combo.addItem(label)
+            property_combo.addItems(row[self.prop_label])
+
+            # Restore previously selected value if it exists
+            if uid in self.combo_values:
+                index = property_combo.findText(self.combo_values[uid])
+                if index >= 0:
+                    property_combo.setCurrentIndex(index)
+
+            property_combo.currentTextChanged.connect(
+                lambda text, item=name_item: self.on_combo_changed(item, text)
+            )
+
+            self.setItemWidget(name_item, self.columnCount() - 1, property_combo)
+
+            # Expand all parent items in the path
+            for parent_item in parents_to_expand:
+                parent_item.setExpanded(True)
+
+        # Update parent checkbox states and resize columns
+        self.update_all_parent_check_states()
+        self.resize_columns()
+        return True
