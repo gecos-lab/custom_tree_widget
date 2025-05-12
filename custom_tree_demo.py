@@ -6,7 +6,13 @@ import time
 
 from typing import List, Optional
 import pandas as pd
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QHBoxLayout
+from PySide6.QtWidgets import (
+    QApplication,
+    QWidget,
+    QVBoxLayout,
+    QPushButton,
+    QHBoxLayout,
+)
 
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtCore import Signal as pyqtSignal
@@ -74,18 +80,19 @@ class MainWindow(QWidget):
     """
 
     def __init__(
-            self,
-            collection_df: Optional[pd.DataFrame] = None,
-            tree_labels: Optional[List[str]] = None,
-            name_label: Optional[str] = None,
-            uid_label: Optional[str] = None,
-            prop_label: Optional[str] = None,
-            default_labels: Optional[List[str]] = None,
+        self,
+        collection_df: Optional[pd.DataFrame] = None,
+        tree_labels: Optional[List[str]] = None,
+        name_label: Optional[str] = None,
+        uid_label: Optional[str] = None,
+        prop_label: Optional[str] = None,
+        default_labels: Optional[List[str]] = None,
     ) -> None:
         super().__init__()
 
-        # Store uid_label as instance variable
+        # Store labels as instance variables
         self.uid_label = uid_label or "uid"  # Default to "uid" if None
+        self.prop_label = prop_label or "properties"  # Default to "properties" if None
 
         self._signals = MainWindowSignals()
 
@@ -212,7 +219,7 @@ class MainWindow(QWidget):
                 "scenario": random.choice(orig_df["scenario"].tolist()),
                 "name": f"New_Feature_{new_uid}",
                 "uid": new_uid,
-                "properties": random.choice(orig_df["properties"].tolist()).copy()
+                "properties": random.choice(orig_df["properties"].tolist()).copy(),
             }
             new_entries.append(new_entry)
 
@@ -226,19 +233,25 @@ class MainWindow(QWidget):
         start_time = time.time()
 
         # Update tree widget's collection_df
-        self.tree_widget.collection_df = pd.concat([self.tree_widget.collection_df, new_df], ignore_index=True)
+        self.tree_widget.collection_df = pd.concat(
+            [self.tree_widget.collection_df, new_df], ignore_index=True
+        )
 
         # Add items to tree widget
         used_individual_add = self.tree_widget.add_items_to_tree(new_df["uid"].tolist())
 
         # Update actors_df with new entries - ensure "show" values are strings
-        new_actors = pd.DataFrame({
-            "uid": new_df["uid"],
-            "actor": new_df["name"],
-            "show": ["True" for _ in range(len(new_df))],  # Explicitly using string "True"
-            "collection": [self.collection.name] * len(new_df),
-            "show_property": ["none"] * len(new_df)
-        })
+        new_actors = pd.DataFrame(
+            {
+                "uid": new_df["uid"],
+                "actor": new_df["name"],
+                "show": [
+                    "True" for _ in range(len(new_df))
+                ],  # Explicitly using string "True"
+                "collection": [self.collection.name] * len(new_df),
+                "show_property": ["none"] * len(new_df),
+            }
+        )
 
         # Convert show column to string type to ensure consistency
         new_actors["show"] = new_actors["show"].astype(str)
@@ -248,12 +261,16 @@ class MainWindow(QWidget):
         elapsed_time = (end_time - start_time) * 1000  # Convert to milliseconds
 
         print(f"Time taken: {elapsed_time:.2f} ms")
-        print(f"Method used: {'Individual add' if used_individual_add else 'Complete rebuild'}")
+        print(
+            f"Method used: {'Individual add' if used_individual_add else 'Complete rebuild'}"
+        )
 
         # Verify items were added
         for uid in new_df["uid"]:
             found = False
-            for item in self.tree_widget.findItems("", Qt.MatchContains | Qt.MatchRecursive):
+            for item in self.tree_widget.findItems(
+                "", Qt.MatchContains | Qt.MatchRecursive
+            ):
                 if self.tree_widget.get_item_uid(item) == uid:
                     found = True
                     break
@@ -269,7 +286,9 @@ class MainWindow(QWidget):
         num_items = min(random.randint(1, 5), len(self.tree_widget.collection_df))
 
         # Randomly select UIDs using the stored uid_label
-        uids_to_remove = self.tree_widget.collection_df["uid"].sample(n=num_items).tolist()
+        uids_to_remove = (
+            self.tree_widget.collection_df["uid"].sample(n=num_items).tolist()
+        )
 
         print(f"Removing {len(uids_to_remove)} items: {uids_to_remove}")
 
@@ -277,7 +296,57 @@ class MainWindow(QWidget):
         self.tree_widget.remove_items_from_tree(uids_to_remove)
 
         # Remove from actors_df
-        self.actors_df = self.actors_df[~self.actors_df['uid'].isin(uids_to_remove)]
+        self.actors_df = self.actors_df[~self.actors_df["uid"].isin(uids_to_remove)]
+
+    def test_property_update(self):
+        """
+        Test function to update properties of selected items by adding or removing properties.
+        """
+        selected_uids = self.collection.selected_uids
+
+        if not selected_uids:
+            QMessageBox.warning(
+                self,
+                "No Selection",
+                "Please select items in the tree to update their properties.",
+            )
+            return
+
+        # Get first item's current properties from collection_df
+        first_uid = selected_uids[0]
+        mask = self.tree_widget.collection_df[self.uid_label] == first_uid
+        current_props = self.tree_widget.collection_df.loc[mask, self.prop_label].iloc[
+            0
+        ]
+
+        # Alternate between adding and removing a property
+        if len(current_props) > 1:
+            # Remove the last property
+            new_props = current_props[:-1]
+        else:
+            # Add a new property
+            new_props = current_props.copy()  # Make a copy of the list
+            new_props.append(f"new_prop_{len(current_props)}")
+
+        # Update properties in the DataFrame using at[] to handle lists
+        for uid in selected_uids:
+            mask = self.tree_widget.collection_df[self.uid_label] == uid
+            idx = self.tree_widget.collection_df[mask].index[0]
+            self.tree_widget.collection_df.at[idx, self.prop_label] = new_props.copy()
+
+        # Update the tree widget's combo boxes
+        for uid in selected_uids:
+            items = self.tree_widget.findItems("", Qt.MatchContains | Qt.MatchRecursive)
+            for item in items:
+                if self.tree_widget.get_item_uid(item) == uid:
+                    combo = self.tree_widget.itemWidget(
+                        item, self.tree_widget.columnCount() - 1
+                    )
+                    if combo:
+                        combo.clear()
+                        combo.addItems(
+                            ["none"] + self.tree_widget.default_labels + new_props
+                        )
 
     def setup_test_buttons(self):
         """Set up test buttons in the main window"""
@@ -293,6 +362,11 @@ class MainWindow(QWidget):
         self.test_remove_btn = QPushButton("Test Remove Random Items", self)
         self.test_remove_btn.clicked.connect(self.test_remove_random_items)
         self.button_layout.addWidget(self.test_remove_btn)
+
+        # Add the property update test button
+        test_prop_button = QPushButton("Test Property Update")
+        test_prop_button.clicked.connect(self.test_property_update)
+        self.button_layout.addWidget(test_prop_button)
 
         # Add button layout to the main layout
         self.layout().addLayout(self.button_layout)

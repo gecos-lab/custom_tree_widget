@@ -556,8 +556,12 @@ class CustomTreeWidget(QTreeWidget):
                 if hasattr(self.parent, "actors_df"):
                     mask = self.parent.actors_df["uid"] == uid
                     if any(mask):
-                        show_state = str(self.parent.actors_df.loc[mask, "show"].iloc[0])
-                        print(f"UID {uid}: Raw show_state = {show_state}, type = {type(show_state)}")
+                        show_state = str(
+                            self.parent.actors_df.loc[mask, "show"].iloc[0]
+                        )
+                        print(
+                            f"UID {uid}: Raw show_state = {show_state}, type = {type(show_state)}"
+                        )
 
                         # Ensure we're working with string values
                         is_checked = show_state.lower() == "true"
@@ -565,7 +569,9 @@ class CustomTreeWidget(QTreeWidget):
                         if is_checked:
                             self.checked_uids.append(uid)
 
-                        print(f"UID {uid}: Parsed boolean = {is_checked}, Final checkbox_state = {checkbox_state}")
+                        print(
+                            f"UID {uid}: Parsed boolean = {is_checked}, Final checkbox_state = {checkbox_state}"
+                        )
                         name_item.setCheckState(0, checkbox_state)
             else:
                 name_item.setFlags(name_item.flags() | Qt.ItemIsUserCheckable)
@@ -812,7 +818,9 @@ class CustomTreeWidget(QTreeWidget):
 
         for uid in uids_to_add:
             # Get the row from collection_df for this UID
-            row = self.collection_df.loc[self.collection_df[self.uid_label] == uid].iloc[0]
+            row = self.collection_df.loc[
+                self.collection_df[self.uid_label] == uid
+            ].iloc[0]
 
             # Find or create the path in the tree hierarchy
             parent = self.invisibleRootItem()
@@ -824,7 +832,9 @@ class CustomTreeWidget(QTreeWidget):
                 parent = self.get_or_create_item(parent, row[level])
                 parents_to_expand.append(parent)
                 if not (parent.flags() & Qt.ItemIsUserCheckable):
-                    parent.setFlags(parent.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate)
+                    parent.setFlags(
+                        parent.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate
+                    )
                     parent.setCheckState(0, Qt.Unchecked)
 
             # Create item with empty first column and name in second column
@@ -888,7 +898,9 @@ class CustomTreeWidget(QTreeWidget):
         total_items = len(self.collection_df)
         if len(uids_to_remove) > total_items * 0.2:
             # Remove items from collection_df
-            self.collection_df = self.collection_df[~self.collection_df[self.uid_label].isin(uids_to_remove)]
+            self.collection_df = self.collection_df[
+                ~self.collection_df[self.uid_label].isin(uids_to_remove)
+            ]
             self.populate_tree()
             return False
 
@@ -928,7 +940,9 @@ class CustomTreeWidget(QTreeWidget):
                 self._cleanup_empty_parents(parent)
 
         # Remove items from collection_df
-        self.collection_df = self.collection_df[~self.collection_df[self.uid_label].isin(uids_to_remove)]
+        self.collection_df = self.collection_df[
+            ~self.collection_df[self.uid_label].isin(uids_to_remove)
+        ]
 
         # Update parent checkbox states and resize columns
         self.update_all_parent_check_states()
@@ -953,3 +967,63 @@ class CustomTreeWidget(QTreeWidget):
                 index = self.indexOfTopLevelItem(item)
                 self.takeTopLevelItem(index)
             item = parent
+
+    def update_properties_for_uids(self, uids, properties_list):
+        """
+        Updates the available properties in combo boxes for specified UIDs.
+        Adds or removes properties from the combo boxes to match the provided list.
+
+        :param uids: List of UIDs whose properties need to be updated
+        :type uids: List[str]
+        :param properties_list: List of properties that should be available in the combo boxes
+        :type properties_list: List[str]
+        :return: None
+        """
+        # Block signals temporarily to prevent unnecessary updates
+        self.blockSignals(True)
+
+        for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
+            uid = self.get_item_uid(item)
+            if uid and uid in uids:
+                combo = self.itemWidget(item, self.columnCount() - 1)
+                if combo:
+                    # Store current selection if it exists
+                    current_text = combo.currentText()
+
+                    # Clear the combo box
+                    combo.clear()
+
+                    # Add default labels first
+                    for label in self.default_labels:
+                        combo.addItem(label)
+
+                    # Add the new properties
+                    combo.addItems(properties_list)
+
+                    # Try to restore previous selection if it's still available
+                    index = combo.findText(current_text)
+                    if index >= 0:
+                        combo.setCurrentIndex(index)
+                    else:
+                        # If previous selection is no longer available, set to first default label
+                        combo.setCurrentIndex(0)
+                        self.combo_values[uid] = combo.itemText(0)
+
+                        # Update show_property in actors_df
+                        if hasattr(self.parent, "actors_df"):
+                            self.parent.actors_df.loc[
+                                self.parent.actors_df["uid"] == uid, "show_property"
+                            ] = combo.itemText(0)
+
+                        # Emit property changed signal
+                        self.parent.signals.propertyToggled.emit(
+                            self.parent.collection.name, uid, combo.itemText(0)
+                        )
+
+        # Update the collection_df to reflect the new properties
+        for uid in uids:
+            mask = self.collection_df[self.uid_label] == uid
+            self.collection_df.loc[mask, self.prop_label] = properties_list
+
+        # Unblock signals
+        self.blockSignals(False)
