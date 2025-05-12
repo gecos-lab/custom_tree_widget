@@ -1,5 +1,7 @@
 """custom_tree.py © Andrea Bistacchi"""
 
+from functools import wraps
+
 from PySide6.QtWidgets import (
     QTreeWidget,
     QTreeWidgetItem,
@@ -400,7 +402,6 @@ class CustomTreeWidget(QTreeWidget):
         self.header().hide()
         self.itemExpanded.connect(self.resize_columns)
         self.itemCollapsed.connect(self.resize_columns)
-        # self.itemChanged.connect(self.on_checkbox_changed)
         self.itemChanged.connect(
             lambda item, column: (
                 self.on_checkbox_changed(item, column)
@@ -419,35 +420,59 @@ class CustomTreeWidget(QTreeWidget):
 
     def preserve_selection(func):
         """
-        Decorator that preserves the current selection in a collection while executing
-        the wrapped function. The selection in the collection is restored to its
-        original state after the wrapped function completes.
-
-        This ensures that changes made during the execution of the wrapped function
-        do not affect the selection state of the collection.
+        Decorator that preserves the current selection of items in a collection
+        while executing the decorated function. After the function execution,
+        the original selection is restored. This is particularly useful in cases
+        when the function manipulates the collection and might otherwise alter
+        the selection unintentionally.
 
         :param func: The function to be wrapped by the decorator.
         :type func: Callable
-        :return: The wrapped function with selection preservation functionality added.
+        :return: The wrapped function that restores the current selection after execution.
         :rtype: Callable
         """
 
+        @wraps(func)
         def wrapper(self, *args, **kwargs):
-            """
-            CustomTreeWidget class extends QTreeWidget to provide additional functionality
-            for preserving and restoring selection during method execution.
-            This widget can maintain the currently selected items within the parent
-            collection when specific operations are performed.
-
-            Attributes:
-                None
-            """
             current_selection = self.parent.collection.selected_uids.copy()
             result = func(self, *args, **kwargs)
             self.restore_selection(current_selection)
             return result
 
         return wrapper
+
+    def restore_selection(self, uids_to_select):
+        """
+        Restores the previously saved selection of items in the widget based on their unique identifiers.
+        This method clears any existing selection in the widget, selects the items matching the provided
+        UIDs, and updates the parent's collection of selected UIDs. During this process, widget signals
+        are temporarily blocked to avoid triggering unwanted behaviors.
+
+        :param uids_to_select: A list of unique identifiers (UIDs) representing the items to be selected in
+            the widget. If list is empty or None, no changes are made.
+        :type uids_to_select: list[str]
+        :return: None
+        """
+        if not uids_to_select:
+            return
+
+        # Temporarily block signals to prevent recursive calls
+        self.blockSignals(True)
+
+        # Clear current selection
+        self.clearSelection()
+
+        # Find all items matching our UIDs and select them
+        for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
+            uid = self.get_item_uid(item)
+            if uid and uid in uids_to_select:
+                item.setSelected(True)
+
+        # Restore our selection list
+        self.parent.collection.selected_uids = uids_to_select.copy()
+
+        # Unblock signals
+        self.blockSignals(False)
 
     def populate_tree(self):
         """
@@ -473,10 +498,8 @@ class CustomTreeWidget(QTreeWidget):
 
         # Clean up existing widgets before clearing the tree
         self._cleanup_tree_widgets()
-
         self.clear()
         hierarchy = self.header_widget.get_order()
-        print("Populating tree with checkbox states:")
 
         # Ensure actors_df 'show' column is string type before we start
         if hasattr(self.parent, "actors_df"):
@@ -505,19 +528,12 @@ class CustomTreeWidget(QTreeWidget):
                         show_state = str(
                             self.parent.actors_df.loc[mask, "show"].iloc[0]
                         )
-                        print(
-                            f"UID {uid}: Raw show_state = {show_state}, type = {type(show_state)}"
-                        )
 
                         # Ensure we're working with string values
                         is_checked = show_state.lower() == "true"
                         checkbox_state = Qt.Checked if is_checked else Qt.Unchecked
                         if is_checked:
                             self.checked_uids.append(uid)
-
-                        print(
-                            f"UID {uid}: Parsed boolean = {is_checked}, Final checkbox_state = {checkbox_state}"
-                        )
                         name_item.setCheckState(0, checkbox_state)
             else:
                 name_item.setFlags(name_item.flags() | Qt.ItemIsUserCheckable)
@@ -806,39 +822,6 @@ class CustomTreeWidget(QTreeWidget):
         parent.addChild(item)
         return item
 
-    def restore_selection(self, uids_to_select):
-        """
-        Restores the previously saved selection of items in the widget based on their unique identifiers.
-        This method clears any existing selection in the widget, selects the items matching the provided
-        UIDs, and updates the parent's collection of selected UIDs. During this process, widget signals
-        are temporarily blocked to avoid triggering unwanted behaviors.
-
-        :param uids_to_select: A list of unique identifiers (UIDs) representing the items to be selected in
-            the widget. If list is empty or None, no changes are made.
-        :type uids_to_select: list[str]
-        :return: None
-        """
-        if not uids_to_select:
-            return
-
-        # Temporarily block signals to prevent recursive calls
-        self.blockSignals(True)
-
-        # Clear current selection
-        self.clearSelection()
-
-        # Find all items matching our UIDs and select them
-        for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
-            uid = self.get_item_uid(item)
-            if uid and uid in uids_to_select:
-                item.setSelected(True)
-
-        # Restore our selection list
-        self.parent.collection.selected_uids = uids_to_select.copy()
-
-        # Unblock signals
-        self.blockSignals(False)
-
     def set_selection_from_uids(self, uids):
         """
         Sets the selection of items based on their unique identifiers (UIDs). It temporarily
@@ -997,10 +980,8 @@ class CustomTreeWidget(QTreeWidget):
                     ] = is_checked
                     if is_checked:
                         turn_on_uids.append(uid)
-                        print("turn_on_uids: ", turn_on_uids)
                     else:
                         turn_off_uids.append(uid)
-                        print("turn_off_uids: ", turn_off_uids)
         # Emit signal
         self.parent.signals.checkboxToggled.emit(
             self.parent.collection.name, turn_on_uids, turn_off_uids
@@ -1058,9 +1039,6 @@ class CustomTreeWidget(QTreeWidget):
         :param text: The new value to set for the combo box.
         :return: None
         """
-        # # Store the current selection
-        # current_selection = self.parent.collection.selected_uids.copy()
-
         # Update the stored combo value
         uid = self.get_item_uid(item)
         if uid:
@@ -1072,11 +1050,6 @@ class CustomTreeWidget(QTreeWidget):
             self.parent.signals.propertyToggled.emit(
                 self.parent.collection.name, uid, text
             )
-
-            # self.emit_property_changed(item, text)
-
-        # # Restore selection after combo box interaction
-        # self.restore_selection(current_selection)
 
     def toggle_with_menu(self, position):
         """
