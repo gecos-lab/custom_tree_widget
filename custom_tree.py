@@ -1027,3 +1027,28 @@ class CustomTreeWidget(QTreeWidget):
 
         # Unblock signals
         self.blockSignals(False)
+
+    def set_selection_from_uids(self, uids):
+        """
+        Changes the current selection to match the provided list of UIDs.
+
+        :param uids: List of UIDs to select
+        :type uids: List[str]
+        """
+        # Block signals temporarily to prevent multiple selection signals
+        self.blockSignals(True)
+
+        # Clear current selection
+        self.clearSelection()
+
+        # Find and select items with matching UIDs
+        for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
+            uid = self.get_item_uid(item)
+            if uid in uids:
+                item.setSelected(True)
+
+        # Unblock signals
+        self.blockSignals(False)
+
+        # Emit selection changed signal
+        self.emit_selection_changed()

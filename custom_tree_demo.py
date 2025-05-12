@@ -71,6 +71,8 @@ class MainWindowSignals(QObject):
     checkboxToggled = pyqtSignal(str, list, list)
     # signal broadcast on property combobox changed with the collection, uid and property as arguments
     propertyToggled = pyqtSignal(str, str, str)
+    # signal for selection change, emits a list of UIDs
+    newSelection = pyqtSignal(list)
 
 
 class MainWindow(QWidget):
@@ -196,6 +198,8 @@ class MainWindow(QWidget):
                 collection, changed_uid, changed_prop
             )
         )
+        # new connection for selection change
+        self.signals.newSelection.connect(self.tree_widget.set_selection_from_uids)
 
     def test_add_random_items(self):
         """Test function that adds random items to the tree and measures performance."""
@@ -348,6 +352,19 @@ class MainWindow(QWidget):
                             ["none"] + self.tree_widget.default_labels + new_props
                         )
 
+    def test_random_selection(self):
+        """Test function to emit random selection of UIDs."""
+        # Get random number of items to select (between 1 and 5)
+        num_items = min(random.randint(1, 5), len(self.tree_widget.collection_df))
+
+        # Randomly select UIDs
+        random_uids = self.tree_widget.collection_df["uid"].sample(n=num_items).tolist()
+
+        print(f"Emitting new selection with {len(random_uids)} items: {random_uids}")
+
+        # Emit the new selection signal
+        self.signals.newSelection.emit(random_uids)
+
     def setup_test_buttons(self):
         """Set up test buttons in the main window"""
         # Create button layout
@@ -367,6 +384,11 @@ class MainWindow(QWidget):
         test_prop_button = QPushButton("Test Property Update")
         test_prop_button.clicked.connect(self.test_property_update)
         self.button_layout.addWidget(test_prop_button)
+
+        # Add the random selection test button
+        test_selection_button = QPushButton("Test Random Selection")
+        test_selection_button.clicked.connect(self.test_random_selection)
+        self.button_layout.addWidget(test_selection_button)
 
         # Add button layout to the main layout
         self.layout().addLayout(self.button_layout)
