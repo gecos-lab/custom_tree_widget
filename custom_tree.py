@@ -874,3 +874,82 @@ class CustomTreeWidget(QTreeWidget):
         self.update_all_parent_check_states()
         self.resize_columns()
         return True
+
+    def remove_items_from_tree(self, uids_to_remove):
+        """
+        Removes items from the tree widget based on provided UIDs.
+        Chooses the most efficient method based on the number of items.
+
+        :param uids_to_remove: List of UIDs for items to be removed from the tree
+        :type uids_to_remove: List[str]
+        :return: bool - True if items were removed individually, False if tree was rebuilt
+        """
+        # If removing more than 20% of total items, rebuild entire tree
+        total_items = len(self.collection_df)
+        if len(uids_to_remove) > total_items * 0.2:
+            # Remove items from collection_df
+            self.collection_df = self.collection_df[~self.collection_df[self.uid_label].isin(uids_to_remove)]
+            self.populate_tree()
+            return False
+
+        # Remove items one by one
+        for uid in uids_to_remove:
+            # Find all items matching our UID
+            items_to_remove = []
+            for item in self.findItems("", Qt.MatchContains | Qt.MatchRecursive):
+                if self.get_item_uid(item) == uid:
+                    items_to_remove.append(item)
+
+            # Remove found items
+            for item in items_to_remove:
+                # Clean up any associated widgets (like combo boxes)
+                combo = self.itemWidget(item, self.columnCount() - 1)
+                if combo:
+                    combo.deleteLater()
+                    self.removeItemWidget(item, self.columnCount() - 1)
+
+                # Remove the item from checked_uids if present
+                if uid in self.checked_uids:
+                    self.checked_uids.remove(uid)
+
+                # Remove the item from combo_values if present
+                if uid in self.combo_values:
+                    del self.combo_values[uid]
+
+                # Get the parent before removing the item
+                parent = item.parent()
+                if parent:
+                    parent.removeChild(item)
+                else:  # Item is at root level
+                    index = self.indexOfTopLevelItem(item)
+                    self.takeTopLevelItem(index)
+
+                # Clean up empty parents recursively
+                self._cleanup_empty_parents(parent)
+
+        # Remove items from collection_df
+        self.collection_df = self.collection_df[~self.collection_df[self.uid_label].isin(uids_to_remove)]
+
+        # Update parent checkbox states and resize columns
+        self.update_all_parent_check_states()
+        self.resize_columns()
+        return True
+
+    def _cleanup_empty_parents(self, item):
+        """
+        Recursively removes empty parent items from the tree.
+
+        :param item: The parent item to check and potentially remove
+        :type item: QTreeWidgetItem
+        """
+        if not item:
+            return
+
+        while item and item.childCount() == 0:
+            parent = item.parent()
+            if parent:
+                parent.removeChild(item)
+            else:
+                index = self.indexOfTopLevelItem(item)
+                self.takeTopLevelItem(index)
+            item = parent
