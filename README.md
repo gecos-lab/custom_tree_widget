@@ -6,4 +6,4 @@ custom_tree_widget © 2025 by Andrea Bistacchi, released under GNU AGPLv3 licens
 
 to do:
 
-See if preserving the checked and selected state, and the property shown, can be simplified using the list from main window and the actors_df.
+Preserving the checked and selected state, and the property shown, using lists from main window and the actors_df, seem complicated and unreliable.
